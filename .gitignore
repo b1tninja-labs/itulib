@@ -1,0 +1,14 @@
+# The corpus is the point of this repository and must never be in it.
+#
+# ITU-T recommendation text is copyright ITU. rfclibrary can vendor the RFC series because RFCs are
+# freely redistributable; that option does not exist here. Everything under corpus/ is fetched by the user
+# on their own machine, so a clone of this repository carries code and clause arithmetic, never spec text.
+corpus/
+.venv/
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+dist/
+.coverage

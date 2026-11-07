@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "itulib"
+version = "0.0.0"
+description = "ITU-T recommendations as a local, citation-precise library and MCP server: X.680/X.690 first. The corpus is fetched on your machine and never shipped, because the text is copyright ITU."
+requires-python = ">=3.12"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Justin Capella", email = "justincapella@gmail.com" }]
+dependencies = [
+    # pypdf is the extractor that was actually verified against the downloaded editions; nothing else
+    # is guessed at here.
+    "pypdf>=5",
+]
+
+[project.optional-dependencies]
+dev = ["mcp>=2.3", "mypy>=1.20", "pytest>=8", "ruff>=0.15"]
+
+[project.scripts]
+itulib = "itulib.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["itulib"]
+
+[tool.ruff]
+line-length = 118
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "S", "B", "SIM"]
+ignore = ["S603", "S607", "S310"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert; that is the entire mechanism. The `python -O` run is what checks the library does not rely
+# on assertions, and that run is over `itulib`, not over the suite.
+"tests/*" = ["S101"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

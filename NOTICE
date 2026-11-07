@@ -1,0 +1,18 @@
+NOTICE
+======
+
+This repository contains no text from any ITU-T Recommendation.
+
+ITU-T Recommendations (including X.680 and X.690) are copyright ITU, and the publications state that no part
+may be reproduced by any means without ITU's prior written permission. The recommendation text is therefore
+fetched by each user on their own machine into `ITULIB_HOME` (default `~/.itulib`) and is never distributed
+with this software, committed to this repository, or embedded in its tests or fixtures.
+
+`tests/test_license.py` exists to keep that true, and its limits are documented in the file: it is a tripwire
+against the obvious copy, not a proof against a determined one.
+
+Anything this project says *about* a clause is a paraphrase with a citation attached — edition and subclause,
+e.g. "Rec. ITU-T X.690 (02/2021) §11.6". The citation is the authority; the paraphrase here is not, and where
+they disagree the recommendation governs.
+
+The code in this repository is licensed under the MIT licence in LICENSE. That licence covers the code only.
