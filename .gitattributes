@@ -1,0 +1,4 @@
+# Checkouts on Windows runners and developer machines must not rewrite line endings: `ruff format --check`
+# and the sdist both assume LF.
+* text=auto eol=lf
+*.pdf binary
