@@ -36,7 +36,8 @@ Legend: `[ok]` implemented and pinned by a named test -- `[part]` partial, with 
 | `ia.heading_only_parents` | read "8.1.2" | `[ok]` | `test_heading_only_parents_expose_their_children` |
 | `ia.search_relaxed` | any-term fallback | `[ok]` | `test_search_relaxes_to_any_term_and_says_so`. Ranking of the fallback is bm25 over OR-ed terms: "OBJECT IDENTIFIER first arc" ranks relative-OID clauses above 8.19; unmeasured beyond spot checks |
 | `ia.outline_budget` | paged outline/browse | `[ok]` | `test_slice_rows_pages_without_loss_and_always_progresses`; X.692 outline 51k tokens -> 2k per page |
-| `ia.packaging` | wheel + sdist | `[part]` | built, `twine check --strict` passed, installed into clean venvs (with and without the `mcp` extra), sdist test suite passes from a clean extraction; `test_mcp_without_the_extra_exits_2_with_the_install_hint`. Not yet: a real upload, `[project.urls]` (no public remote), CI/release workflows have never run |
+| `ia.packaging` | wheel + sdist | `[part]` | built, `twine check --strict` passed, installed into clean venvs (with and without the `mcp` extra), sdist test suite passes from a clean extraction; `test_mcp_without_the_extra_exits_2_with_the_install_hint`. `[project.urls]` now points at the GitHub remote. Not yet: a real upload; `release.yml` has never run on GitHub (its build steps were repeated by hand, see `ia.ci`) |
+| `ia.ci` | `.github/workflows/ci.yml`, `release.yml` | `[part]` | `ci.yml` ran green on GitHub for pushes e29fdb0 and d191f2b: all nine OS x Python (3.12-3.14) jobs and `core-only`. Nothing in the suite fails if a workflow regresses, so this is observed, not guarded. `release.yml` has never run: its build job's commands (build, `twine check --strict`, wheel installed with `[mcp]`, sdist tests from a clean extraction, tag/version extraction) were run by hand on Windows, not on the Linux runner, and the TestPyPI/PyPI publish jobs are untested |
 | `ia.claude_registration` | `claude mcp add` | `[part]` | registered at user scope, `claude mcp list` reports Connected, all nine tools driven over stdio against the real corpus with zero errors. The running session's own tool list was not reloaded, so the model-facing path is unexercised |
 
 ## 2. Retiring asn1core's markers
@@ -67,9 +68,7 @@ stays `[ ]` until that commit exists. Recording where a clause is is not retirin
 
 ## 4. Board projection
 
-Nothing here is on Project V2 #2 "Protocol SDK portfolio", and that is not an oversight: **`itulibrary` has no
-GitHub remote**, so `sync_roadmap.py` has nowhere to file. Neither does `asn1core`. `git push` there fails with
-wording about the repository existing, which is the honest signal that no remote is configured rather than a
-permission problem. Creating the repositories is the owner's decision; once one exists,
-`py sdk-forge/sync_roadmap.py --project itulibrary --apply --board` projects this matrix and the four-repository
-board becomes five.
+Nothing here is on Project V2 #2 "Protocol SDK portfolio" yet. `itulibrary` now has a public remote,
+https://github.com/b1tninja/itulib, so the blocker is gone; what remains is running
+`py sdk-forge/sync_roadmap.py --project itulibrary --apply --board` and then `--check`, neither of which has
+been done. `asn1core` still has no remote.
