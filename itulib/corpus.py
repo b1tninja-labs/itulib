@@ -20,7 +20,9 @@ import pathlib
 import time
 import urllib.request
 
-from .sources import Edition
+from .sources import Amendment, Edition
+
+Document = Edition | Amendment
 
 DEFAULT_HOME = pathlib.Path.home() / ".itulib"
 
@@ -30,8 +32,8 @@ def home() -> pathlib.Path:
     return pathlib.Path(override) if override else DEFAULT_HOME
 
 
-def pdf_path(edition: Edition) -> pathlib.Path:
-    return home() / "corpus" / f"{edition.key.replace('#', '-')}.pdf"
+def pdf_path(edition: Document) -> pathlib.Path:
+    return home() / "corpus" / f"{edition.key.replace('#', '-').replace('!', '-')}.pdf"
 
 
 def manifest_path() -> pathlib.Path:
@@ -46,7 +48,7 @@ def _record() -> dict[str, dict[str, object]]:
     return loaded if isinstance(loaded, dict) else {}
 
 
-def has(edition: Edition) -> bool:
+def has(edition: Document) -> bool:
     """Present and, if a digest is registered, byte-identical to it."""
     path = pdf_path(edition)
     if not path.is_file():
@@ -56,7 +58,7 @@ def has(edition: Edition) -> bool:
     return hashlib.sha256(path.read_bytes()).hexdigest() == edition.sha256
 
 
-def require(edition: Edition) -> pathlib.Path:
+def require(edition: Document) -> pathlib.Path:
     """The local PDF, or an error naming the command that produces it."""
     path = pdf_path(edition)
     if not has(edition):
@@ -73,13 +75,16 @@ class CorpusMissing(RuntimeError):
     """The corpus has not been fetched. The remedy is a command, never a committed file."""
 
 
-def fetch(edition: Edition, *, refresh: bool = False) -> pathlib.Path:
+def fetch(edition: Document, *, refresh: bool = False) -> pathlib.Path:
     """Download one edition, verify it against the registered digest, and record what arrived."""
     path = pdf_path(edition)
     if has(edition) and not refresh:
         return path
+    url = edition.pdf_url
+    if url is None:
+        raise RuntimeError(f"{edition.key}: no download id is registered, so there is nothing to fetch")
     path.parent.mkdir(parents=True, exist_ok=True)
-    request = urllib.request.Request(edition.pdf_url, headers={"User-Agent": "itulib-fetch"})  # noqa: S310
+    request = urllib.request.Request(url, headers={"User-Agent": "itulib-fetch"})  # noqa: S310
     with urllib.request.urlopen(request, timeout=300) as response:  # noqa: S310
         body = response.read()
     if not body.startswith(b"%PDF"):
@@ -96,7 +101,7 @@ def fetch(edition: Edition, *, refresh: bool = False) -> pathlib.Path:
         "sha256": digest,
         "octets": len(body),
         "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "source": edition.pdf_url,
+        "source": url,
     }
     manifest_path().write_text(json.dumps(records, indent=2), encoding="utf-8")
     return path

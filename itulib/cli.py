@@ -11,6 +11,7 @@ import argparse
 import sys
 
 from . import corpus, index, sources
+from .errata import errata_text
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -31,7 +32,7 @@ def main(argv: list[str] | None = None) -> int:
     key = args.args[0] if args.args else "X.690"
 
     try:
-        edition = sources.resolve(key)
+        edition = sources.resolve_document(key)
     except KeyError as error:
         print(error, file=sys.stderr)
         return 2
@@ -40,13 +41,28 @@ def main(argv: list[str] | None = None) -> int:
         for item in (*sources.IN_FORCE, *sources.SUPERSEDED):
             print(f"{item.key:18} {item.status:11} {item.octets:>10,} B  {item.title}")
         for amendment in sources.AMENDMENTS:
-            print(f"{amendment.key:18} {amendment.status:11} {amendment.label}")
+            fetched = "fetched" if amendment.artifact and corpus.has(amendment) else "not fetched"
+            print(f"{amendment.key:18} {amendment.status:11} {amendment.label} [{fetched}]")
         print(f"corpus home: {corpus.home()}  present: {[e.key for e in (*sources.IN_FORCE,) if corpus.has(e)]}")
         return 0
 
     if args.command == "fetch":
         path = corpus.fetch(edition)
         print(f"fetched {edition.key} -> {path} ({path.stat().st_size:,} B)")
+        return 0
+
+    if isinstance(edition, sources.Amendment):
+        # An erratum has no clause structure to index; `read` prints its extracted text, nothing else applies.
+        if args.command != "read":
+            print(f"{edition.key} is an erratum or amendment: only `fetch` and `read` apply", file=sys.stderr)
+            return 2
+        try:
+            print(edition.label)
+            print()
+            print(errata_text(edition))
+        except (corpus.CorpusMissing, RuntimeError) as error:
+            print(str(error), file=sys.stderr)
+            return 3
         return 0
 
     # Everything below reads the corpus. A missing corpus is a known state with a known remedy, so it is

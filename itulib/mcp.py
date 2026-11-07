@@ -18,6 +18,7 @@ import json
 import sys
 
 from . import corpus, index, sources
+from .errata import errata_text
 
 INSTRUCTIONS = (
     "ITU-T recommendations (X.680, X.690) as clause-precise search and citation. The corpus is fetched by the "
@@ -122,10 +123,20 @@ def build() -> object:
     @app.tool(description="Errata, amendments and corrigenda registered against an edition.")
     def itu_errata(rec: str = "X.690") -> str:
         items = [item for item in sources.AMENDMENTS if item.rec == rec]
+        rows: list[dict[str, object]] = []
+        for item in items:
+            row: dict[str, object] = {"key": item.key, "label": item.label, "status": item.status}
+            if item.artifact:
+                row["fetched"] = corpus.has(item)
+                if row["fetched"]:
+                    row["text"] = errata_text(item)
+                else:
+                    row["hint"] = f"python -m itulib.cli fetch {item.key}"
+            rows.append(row)
         return _guard(
             {
                 "rec": rec,
-                "items": [{"key": item.key, "label": item.label, "status": item.status} for item in items],
+                "items": rows,
                 "caveat": next((item.note for item in items if item.note), ""),
             }
         )

@@ -52,10 +52,26 @@ def test_resolve_refuses_to_guess() -> None:
         sources.current("X.509")
 
 
-def test_errata_surface_is_honest_about_what_was_not_found() -> None:
-    """The X.690 erratum is real and listed In force; the download id was not discovered, and that is said."""
+def test_errata_are_registered_and_the_unfetchable_ones_say_so() -> None:
     errata = [item for item in sources.AMENDMENTS if "Erratum" in item.label]
     assert errata, "ITU publishes errata; an empty registry would misreport that"
-    for item in errata:
-        assert item.artifact is None
-        assert "500" in item.note or "discover" in item.note.lower()
+    for item in sources.AMENDMENTS:
+        if item.artifact is None:
+            assert item.note, f"{item.key}: no download id and no note saying why"
+
+
+def test_every_amendment_with_a_download_id_is_pinned() -> None:
+    """The erratum id was read off ITU's own page after two guessed ids returned HTTP 500; keep it pinned."""
+    fetchable = [item for item in sources.AMENDMENTS if item.artifact]
+    assert any(item.key == "X.690#2021-02!erratum-1" for item in fetchable)
+    for item in fetchable:
+        assert item.pdf_url is not None and item.pdf_url.startswith("https://www.itu.int/")
+        assert len(item.sha256) == 64 and item.octets > 0, item.key
+        assert "!!ERSN1" not in (item.artifact or "") and "!!DOC" not in (item.artifact or "")
+
+
+def test_resolve_document_finds_an_erratum_and_still_refuses_to_guess() -> None:
+    assert sources.resolve_document("X.690#2021-02!erratum-1").key == "X.690#2021-02!erratum-1"
+    assert sources.resolve_document("X.690").key == "X.690#2021-02"
+    with pytest.raises(KeyError):
+        sources.resolve_document("X.690!nonsense")

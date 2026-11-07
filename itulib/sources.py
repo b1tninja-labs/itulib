@@ -42,6 +42,8 @@ class Amendment:
     status: str
     artifact: str | None
     note: str = ""
+    sha256: str = ""
+    octets: int = 0
 
     @property
     def pdf_url(self) -> str | None:
@@ -105,9 +107,12 @@ AMENDMENTS: tuple[Amendment, ...] = (
         rec="X.690",
         label="Erratum 1 (09/2021) to Rec. X.690 (2021) | ISO/IEC 8825-1:2021",
         status="in force",
-        artifact=None,
-        note="Listed In force on the X.690 page. The format id guessed here returned HTTP 500; discover the "
-        "real id from the component page before fetching. rfclib-style errata surface depends on this.",
+        artifact="T-REC-X.690-202109-I!Err1!PDF-E",
+        note="Listed In force on the X.690 page. A one-page covering note, 13 September 2021: Figure 4 "
+        "(high-tag-number identifier octets) has a typo in its penultimate octet and is replaced. The id is "
+        "read off the erratum's own page; the `!!ERSN1-E` and `!!DOC-E` guesses return HTTP 500.",
+        sha256="bb1acaa66a0897f9e53569d3449ce8fbf0892243ddd0cc430c912ed3178d6835",
+        octets=194_138,
     ),
     Amendment(
         key="X.690#2002-07!amd2",
@@ -132,6 +137,14 @@ def current(rec: str) -> Edition:
         if edition.rec == rec:
             return edition
     raise KeyError(f"{rec}: no in-force edition registered")
+
+
+def resolve_document(key: str) -> Edition | Amendment:
+    """An edition, or an amendment/erratum when the key names one (`X.690#2021-02!erratum-1`)."""
+    for amendment in AMENDMENTS:
+        if amendment.key == key:
+            return amendment
+    return resolve(key)
 
 
 def resolve(key: str) -> Edition:
