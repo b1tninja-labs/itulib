@@ -79,7 +79,7 @@ def test_an_extractor_that_finds_nothing_refuses_to_write_an_index(
         index.build(SYNTHETIC)
 
 
-def test_mcp_stdio_handshake_lists_six_tools_and_reports_a_missing_corpus(tmp_path: Path) -> None:
+def test_mcp_stdio_handshake_lists_nine_tools_and_reports_a_missing_corpus(tmp_path: Path) -> None:
     """Drives the real server over stdio. Catches stdout pollution, which importing the module never would."""
 
     async def drive() -> tuple[set[str], dict[str, object], dict[str, object]]:
@@ -97,7 +97,17 @@ def test_mcp_stdio_handshake_lists_six_tools_and_reports_a_missing_corpus(tmp_pa
             return names, _payload(info), _payload(search)
 
     names, info, search = anyio.run(drive)
-    assert names == {"itu_info", "itu_search", "itu_read", "itu_outline", "itu_grep", "itu_errata"}
+    assert names == {
+        "itu_info",
+        "itu_search",
+        "itu_read",
+        "itu_outline",
+        "itu_grep",
+        "itu_errata",
+        "itu_cite",
+        "itu_links",
+        "itu_browse",
+    }
     assert {item["fetched"] for item in info["editions"]} == {False}  # type: ignore[attr-defined]
     assert "error" in search, "a missing corpus must be an error object, never an empty hit list"
     assert "hits" not in search
