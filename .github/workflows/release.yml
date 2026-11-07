@@ -31,8 +31,9 @@ jobs:
       - run: python -m twine check --strict dist/*
       - name: No ITU material in either artifact
         run: |
-          ! unzip -l dist/*.whl | grep -i -E '\.(pdf|doc|docx|zip)$'
-          ! tar tzf dist/*.tar.gz | grep -i -E '\.(pdf|doc|docx|zip)$'
+          # `! cmd` is exempt from errexit, so a match in the first check would be ignored; test explicitly.
+          if unzip -l dist/*.whl | grep -i -E '\.(pdf|doc|docx|zip)$'; then echo "ITU-like file in wheel"; exit 1; fi
+          if tar tzf dist/*.tar.gz | grep -i -E '\.(pdf|doc|docx|zip)$'; then echo "ITU-like file in sdist"; exit 1; fi
       - name: Test the wheel
         run: |
           python -m venv /tmp/wheeltest

@@ -40,8 +40,11 @@ mcp = ["mcp>=2.3"]
 all = ["itulib[mcp]"]
 dev = ["itulib[mcp]", "mypy>=1.20", "pytest>=8", "ruff>=0.15", "build>=1.2", "twine>=5"]
 
-# No [project.urls] yet: this repository has no public remote (ROADMAP.md section 4). Add Homepage, Source and
-# Issues when one exists, before the first upload, rather than publishing a placeholder.
+[project.urls]
+Homepage = "https://github.com/b1tninja/itulib"
+Source = "https://github.com/b1tninja/itulib"
+Issues = "https://github.com/b1tninja/itulib/issues"
+Changelog = "https://github.com/b1tninja/itulib/blob/main/CHANGELOG.md"
 
 [project.scripts]
 itulib = "itulib.cli:main"
