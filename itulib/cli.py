@@ -184,6 +184,70 @@ def cmd_compare(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_catalog_sync(args: argparse.Namespace) -> int:
+    """Read series listings (about one request each), then, with --details, each recommendation's pages."""
+    from . import catalog
+
+    letters = list(sources.SERIES) if args.series == ["all"] else [s.upper() for s in args.series]
+    fetcher = catalog.Fetcher(catalog.catalog_dir() / "cache")
+    for letter in letters:
+        count = catalog.sync_listing(letter, fetcher, refresh=args.refresh)
+        print(f"series {letter}: {count} recommendations listed")
+        if args.details:
+            done, pages = catalog.sync_details(
+                letter,
+                fetcher,
+                limit=args.limit,
+                only=args.rec or None,
+                include_withdrawn=args.include_withdrawn,
+                refresh=args.refresh,
+                reparse=args.reparse,
+                progress=lambda message: print("  " + message, flush=True),
+            )
+            print(f"series {letter}: {done} recommendations detailed, {pages} component pages read")
+    print(f"{fetcher.requests} request(s) made to itu.int")
+    return 0
+
+
+def cmd_catalog_list(args: argparse.Namespace) -> int:
+    from . import catalog
+
+    recs = catalog.load(args.series.upper())
+    found = catalog.rows(recs, text=args.text, fmt=args.format, free_only=args.free)
+    for row in found[: args.limit]:
+        print(f"{row.rec:10} {row.kind:11} {row.label:42} {row.summary():34} {row.title}")
+    shown = min(len(found), args.limit)
+    detailed = sum(1 for entry in recs.values() if entry.get("components") is not None)
+    print(
+        f"\n{shown} of {len(found)} shown; {detailed} of {len(recs)} recommendations in series {args.series.upper()}"
+        f" have details (sync with --details for the rest). * = not freely available."
+    )
+    return 0 if found else 1
+
+
+def cmd_catalog_show(args: argparse.Namespace) -> int:
+    from . import catalog
+
+    rec = args.rec
+    entry = catalog.load(rec[0].upper()).get(rec)
+    if entry is None:
+        print(f"{rec}: not in the catalogue. Run: itulib catalog sync {rec[0].upper()}", file=sys.stderr)
+        return 1
+    print(f"{rec}  [{entry.get('status')}]  {entry.get('title')}")
+    if entry.get("note"):
+        print(f"  note: {entry['note']}")
+    components = entry.get("components")
+    if components is None:
+        print(f"  no details yet. Run: itulib catalog sync {rec[0].upper()} --details")
+        return 0
+    for component in components:  # type: ignore[attr-defined]
+        assets = component.get("assets") or []
+        formats = " ".join(f"{a['fmt']}{'' if a['access'] == 'free' else '*'}" for a in assets)
+        head = f"{component['section']:10} {component['kind']:11} {component['label']:42}"
+        print(f"  {head} {component['status']:24} {formats}")
+    return 0
+
+
 def cmd_links(args: argparse.Namespace) -> int:
     edition, number, _para = _resolve(_join(args.ref))
     return _print_links(edition, number)
@@ -297,6 +361,39 @@ def build_parser() -> argparse.ArgumentParser:
 
     errata = add("errata", cmd_errata, "errata, corrigenda and amendments registered for a recommendation")
     errata.add_argument("rec", nargs="?", default=DEFAULT)
+
+    catalog = add("catalog", lambda _args: 0, "the ITU-T catalogue: what exists and in which formats (metadata only)")
+    catalog_sub = catalog.add_subparsers(dest="catalog_command", required=True)
+
+    def add_catalog(
+        name: str, handler: Callable[[argparse.Namespace], int], help_text: str
+    ) -> argparse.ArgumentParser:
+        command = catalog_sub.add_parser(name, help=help_text, description=help_text)
+        command.set_defaults(handler=handler)
+        return command
+
+    csync = add_catalog(
+        "sync", cmd_catalog_sync, "read series listings from itu.int (1 request/second, cached under ITULIB_HOME)"
+    )
+    csync.add_argument("series", nargs="*", default=["X"], help="series letters, or 'all' (default: X)")
+    csync.add_argument("--details", action="store_true", help="also read each recommendation's pages (resumable)")
+    csync.add_argument("--limit", type=int, help="stop after this many recommendations (with --details)")
+    csync.add_argument(
+        "--rec", nargs="*", help="only these recommendations, for example X.509 X.690 (with --details)"
+    )
+    csync.add_argument("--include-withdrawn", action="store_true")
+    csync.add_argument("--refresh", action="store_true", help="ignore the page cache and fetch again")
+    csync.add_argument("--reparse", action="store_true", help="rebuild details from cached pages (no requests)")
+
+    clist = add_catalog("list", cmd_catalog_list, "in-force editions with their available formats")
+    clist.add_argument("--series", default="X")
+    clist.add_argument("--text", default="", help="substring of number or title")
+    clist.add_argument("--format", default="", help="only editions offering this format id (PDF, EPB, MSW, TOC-HTM)")
+    clist.add_argument("--free", action="store_true", help="count only freely available assets for --format")
+    clist.add_argument("--limit", type=int, default=50)
+
+    cshow = add_catalog("show", cmd_catalog_show, "every component of one recommendation, with formats")
+    cshow.add_argument("rec", help="for example X.509")
 
     add("mcp", cmd_mcp, "serve the MCP tools over stdio (needs the mcp extra)")
     return parser

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import sys
+from dataclasses import asdict
 
 from . import __version__, corpus, index, sources, text
 from .errata import errata_text
@@ -245,6 +246,37 @@ def build() -> object:
         return _guard(
             {
                 "items": [{"number": n, "title": t} for n, t in shown],
+                "next": None if more is None else {"start": more},
+            }
+        )
+
+    @app.tool(
+        description="The ITU-T catalogue read from itu.int by `itulib catalog sync`: in-force editions and the "
+        "formats each is offered in (PDF, EPB=EPUB, MSW=Word, TOC-HTM, SUM-HTM; '*' marks not freely available). "
+        "Metadata only. Paged: pass `next.start` back as `start`."
+    )
+    def itu_catalog(
+        series: str = "X", text: str = "", fmt: str = "", free: bool = False, start: int = 0, max_tokens: int = 1500
+    ) -> str:
+        from . import catalog
+
+        try:
+            recs = catalog.load(series.upper())
+            found = catalog.rows(recs, text=text, fmt=fmt, free_only=free)
+            shown, more = index.slice_rows(
+                tuple((f"{r.rec} {r.label}", f"{r.summary()} {r.title}") for r in found),
+                start,
+                max_tokens,
+            )
+        except Exception as error:  # noqa: BLE001 - a crash tells the client nothing at all
+            return _fail(error, f"itulib catalog sync {series.upper()} --details")
+        detailed = sum(1 for entry in recs.values() if entry.get("components") is not None)
+        return _guard(
+            {
+                "series": series.upper(),
+                "total": len(found),
+                "recommendations_with_details": f"{detailed} of {len(recs)}",
+                "items": [asdict(found[start + i]) for i in range(len(shown))],
                 "next": None if more is None else {"start": more},
             }
         )
