@@ -15,6 +15,11 @@ from .errata import errata_text
 
 
 def main(argv: list[str] | None = None) -> int:
+    # The corpus is full of characters cp1252 has no room for: X.680 §47.3 contains U+2212 MINUS SIGN, and
+    # printing that clause killed the command with UnicodeEncodeError on a redirected Windows console. A tool
+    # whose whole job is to hand back clause text cannot be allowed to die on a minus sign, so stdout is
+    # UTF-8 with replacement rather than whatever the console's code page happens to be.
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
     parser = argparse.ArgumentParser(prog="itulib", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -24,11 +29,14 @@ def main(argv: list[str] | None = None) -> int:
         ("search", "full-text clause search"),
         ("read", "print one clause with its citation"),
         ("info", "registered editions, statuses and amendments"),
+        ("sync", "fetch and index every in-force edition (or those named); skips what is already current"),
     ):
         command = sub.add_parser(name, help=help_text)
         command.add_argument("args", nargs="*", help="edition key (default X.690) and query")
 
     args = parser.parse_args(argv)
+    if args.command == "sync":
+        return _sync(args.args)
     key = args.args[0] if args.args else "X.690"
 
     try:
@@ -74,6 +82,22 @@ def main(argv: list[str] | None = None) -> int:
     except (corpus.CorpusMissing, RuntimeError) as error:
         print(str(error), file=sys.stderr)
         return 3
+
+
+def _sync(names: list[str]) -> int:
+    """Fetch and index each in-force edition. One failure is reported and does not stop the rest, and the exit
+    status is non-zero if any failed, because a sync that quietly skips reports the same green as one that ran."""
+    targets = [sources.resolve(name) for name in names] if names else list(sources.IN_FORCE)
+    failed: list[str] = []
+    for edition in targets:
+        try:
+            corpus.fetch(edition)
+            count = index.build(edition)
+            print(f"{edition.key:16} ok  {count:>5} clauses")
+        except (corpus.CorpusMissing, RuntimeError, OSError) as error:
+            failed.append(edition.key)
+            print(f"{edition.key:16} FAILED  {error}", file=sys.stderr)
+    return 3 if failed else 0
 
 
 def _corpus_command(args: argparse.Namespace, edition: sources.Edition) -> int:
