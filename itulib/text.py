@@ -20,7 +20,8 @@ from pypdf.errors import PdfReadError
 
 # Numeric (8.1.2.4) or annex (A.1, C.3.2) numbering. Annex letters stop at I: past that they collide with
 # recommendation names ("G.711", "H.323") far more often than they head a clause.
-CLAUSE_NUMBER = re.compile(r"(?<![\w.])((?:\d{1,2}|[A-I])(?:\.\d{1,2}){1,5})\s")
+# The extractor sometimes drops the space after the number ("22.11.2.1If ..."); a capitalised word is accepted then.
+CLAUSE_NUMBER = re.compile(r"(?<![\w.])((?:\d{1,2}|[A-I])(?:\.\d{1,2}){1,5})(?:\s|(?=[A-Z][a-z]))")
 # A row of the document-history table ("1.1 ITU-T X.690 (1994) Cor. 1 ...") looks like clause 1.1.
 HISTORY_ROW = re.compile(r"ITU-T\s+[A-Z]\.\d+\s*\(?\d{4}")
 # "ISO/IEC 8824 -1": the extractor puts a space before the part number of a joint designation.
@@ -138,6 +139,8 @@ def _is_reference(flat: str, start: int) -> bool:
     if not match:
         return False
     word = match.group(1)
+    if len(word) > 1 and word.isupper():
+        return False  # an acronym ("PER", "BER"), not the word "per" shouted
     return word in {"§", ",", "("} or word.lower() in _REFERENCE_WORDS
 
 
@@ -229,7 +232,10 @@ def _locate(flat: str, listed: list[tuple[str, str]]) -> list[tuple[str, str, in
         label = r"Annex\s+" + number + r"[\s\-–—:.]*" if number.isalpha() else re.escape(number) + r"\s+"
         head = re.compile(r"(?<![\w.])" + label)
         for match in head.finditer(flat, cursor):
-            if _is_reference(flat, match.start()):
+            # A heading that follows the previous heading's title with nothing between is not a pointer, whatever
+            # that title ends in ("15 The renames clause 15.1 Explicitly ...").
+            adjacent = not flat[cursor : match.start()].strip()
+            if not adjacent and _is_reference(flat, match.start()):
                 continue
             tail = pattern.match(flat, match.end()) if pattern else None
             if tail is None and pattern is not None:
@@ -279,23 +285,78 @@ def clauses(source: list[str] | str, listed: list[tuple[str, str]] | None = None
     return tuple(found)
 
 
+# Words that can follow a pointer ("applying 13.4 to the set", "then 16.8 to 16.11 apply") and never open a
+# numbered paragraph or a definition entry. A definition's term is lowercase too ("3.1 canonical encoding:"), which
+# is why this is a list of function words and not "anything lowercase": of the 276 accepted paragraphs that began
+# with a lowercase word in the 02/2021 corpus, only four (all "to") began with one of these; all four were pointers.
+_POINTER_FOLLOWERS = frozenset(
+    [
+        *("to", "and", "or", "shall", "should", "may", "must", "applies", "apply", "is", "are", "of", "do", "does"),
+        *("not", "still", "which", "that", "if", "then", "in", "for", "from", "as", "with", "by", "also", "above"),
+        *("below", "can", "cannot", "will", "was", "were", "has", "have", "being", "but"),
+    ]
+)
+_NEXT_WORD = re.compile(r"\s*([a-z][a-z-]*)\b")
+
+
+def _is_pointer_by_follower(flat: str, end: int) -> bool:
+    match = _NEXT_WORD.match(flat, end)
+    return match is not None and match.group(1) in _POINTER_FOLLOWERS
+
+
+def _is_annex_entry(
+    flat: str, last: tuple[int | str, ...], candidate: tuple[int | str, ...], at: int, floor: int
+) -> bool:
+    """`C.1` straight after the text of the previous annex or clause, where PDF bookmarks skip the annex's own
+    heading ("Annex C", its title and "(This annex forms an integral part ...)"). Accepted only for a later annex
+    letter and only when the words "Annex C" occur since the previous numbered paragraph, so a pointer such as
+    "defined in C.10" cannot open an annex."""
+    if len(candidate) != 2 or candidate[1] != 1 or not isinstance(candidate[0], str):
+        return False
+    letter = candidate[0]
+    if not isinstance(last[0], int) and letter <= last[0]:
+        return False  # annexes only advance; a letter has no heading to open twice
+    # Later than the current one, not necessarily the next: an annex without numbered paragraphs ("Annex B") is
+    # skipped over.
+    return re.search(rf"Annex\s+{letter}\b", flat[floor:at]) is not None
+
+
+def _paragraph_marks(
+    flat: str, number: str, start: int, stop: int, taken: frozenset[str] = frozenset()
+) -> list[tuple[str, int, int]]:
+    """Numbered paragraphs inside one heading's region, accepted only as successors of the previous one.
+
+    `taken` holds the numbers of headings located elsewhere in the document. Such a number cannot also be a
+    paragraph of this region, so an occurrence here is a pointer or a list entry ("RepetitionStructure 16.4
+    ConcatenationStructure 16.5") however well it fits the sequence.
+    """
+    marks: list[tuple[str, int, int]] = []
+    last = _key(number)
+    floor = start
+    for match in CLAUSE_NUMBER.finditer(flat, start, stop):
+        candidate = match.group(1)
+        key = _key(candidate)
+        if (
+            candidate not in taken
+            and (_is_successor(last, key) or _is_annex_entry(flat, last, key, match.start(), floor))
+            and not candidate.endswith(".0")
+            # nothing between the heading's title and the number: a paragraph, whatever the title ends in
+            and (not flat[start : match.start()].strip() or not _is_reference(flat, match.start()))
+            and not _is_pointer_by_follower(flat, match.end())
+        ):
+            marks.append((candidate, match.start(), match.end()))
+            last = key
+            floor = match.end()
+    return marks
+
+
 def _clauses_from_headings(flat: str, listed: list[tuple[str, str]]) -> tuple[Clause, ...]:
     located = _locate(flat, listed)
     found: list[Clause] = []
+    taken = frozenset(number for number, *_ in located)
     for index, (number, title, _start, title_end) in enumerate(located):
         region_end = located[index + 1][2] if index + 1 < len(located) else len(flat)
-        # Numbered paragraphs inside this heading's region, accepted only as successors of the previous one.
-        marks: list[tuple[str, int, int]] = []
-        last = _key(number)
-        for match in CLAUSE_NUMBER.finditer(flat, title_end, region_end):
-            candidate = match.group(1)
-            if (
-                _is_successor(last, _key(candidate))
-                and not candidate.endswith(".0")
-                and not _is_reference(flat, match.start())
-            ):
-                marks.append((candidate, match.start(), match.end()))
-                last = _key(candidate)
+        marks = _paragraph_marks(flat, number, title_end, region_end, taken)
         first_stop = marks[0][1] if marks else region_end
         found.append(
             Clause(number=number, title=title, body=_body_after_title(flat, title_end, first_stop), heading=True)
@@ -405,6 +466,24 @@ class Refs:
     bare: tuple[str, ...]  # dotted numbers after "see"/"in"/"of"...: pointers if, and only if, the clause exists
     recommendations: tuple[str, ...]
     standards: tuple[str, ...]
+    foreign: tuple[str, ...] = ()  # numbers qualified by another recommendation's designation: not this document
+
+
+_DESIGNATION = r"(?:ITU-T\s+[A-Z]\.\d+|ISO/IEC\s+\d+(?:-\d+)?)"
+# "... Rec. ITU-T X.680 | ISO/IEC 8824-1, clause 12.3": the designation directly before the pointer.
+_FOREIGN_BEFORE = re.compile(rf"{_DESIGNATION}(?:\s*\|\s*{_DESIGNATION})*\s*,?\s*$")
+# "clause 12.3 of Rec. ITU-T X.680": the designation directly after it.
+_FOREIGN_AFTER = re.compile(r"\s*,?\s*(?:of|in)\s+(?:Rec\.|ITU-T|ISO/IEC)")
+
+
+def _is_foreign(body: str, start: int, end: int) -> bool:
+    """True when a pointer is qualified by another recommendation's designation. Resolving "clause 12.3 of
+    Rec. ITU-T X.680" against this document's own clause 12.3 would silently cite the wrong text. A pointer
+    qualified by the document's own name is not recognised as such: this text says "this Recommendation" instead."""
+    return (
+        _FOREIGN_BEFORE.search(body[max(start - 60, 0) : start]) is not None
+        or _FOREIGN_AFTER.match(body, end) is not None
+    )
 
 
 def refs(body: str) -> Refs:
@@ -416,15 +495,19 @@ def refs(body: str) -> Refs:
     one only if that clause exists, because nothing else distinguishes it from an arc or a version.
     """
     seen: dict[str, None] = {}
+    foreign: dict[str, None] = {}
     for match in _INTERNAL.finditer(body):
+        target = foreign if _is_foreign(body, match.start(), match.end()) else seen
         for number in _NUMBER.findall(match.group(1)):
-            seen.setdefault(number)
+            target.setdefault(number)
     bare = dict.fromkeys(
-        m.group(1) for m in _NUMBER_AT.finditer(body) if m.group(1) not in seen and _is_reference(body, m.start())
+        m.group(1)
+        for m in _NUMBER_AT.finditer(body)
+        if m.group(1) not in seen and _is_reference(body, m.start()) and not _is_foreign(body, m.start(), m.end())
     )
     recs = dict.fromkeys(m.group(1) for m in _REC.finditer(body))
     standards = dict.fromkeys([m.group(0) for m in _ISO.finditer(body)] + [m.group(0) for m in _RFC.finditer(body)])
-    return Refs(tuple(seen), tuple(bare), tuple(recs), tuple(standards))
+    return Refs(tuple(seen), tuple(bare), tuple(recs), tuple(standards), tuple(foreign))
 
 
 def parse_ref(raw: str) -> tuple[str | None, str, int | None]:
