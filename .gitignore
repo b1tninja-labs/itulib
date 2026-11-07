@@ -12,3 +12,59 @@ __pycache__/
 .ruff_cache/
 dist/
 .coverage
+
+# --- Anything that could carry ITU text, by file type -------------------------------------------------------
+# tests/test_license.py fails on these suffixes anywhere in the tree; ignoring them as well means a stray
+# download is never staged in the first place. (A PDF fetched by `itulib fetch` goes to ITULIB_HOME, not here.)
+*.pdf
+*.epub
+*.doc
+*.docx
+*.zip
+*.pdb
+
+# The local index and the crawled catalogue live in ITULIB_HOME (default ~/.itulib), never in the checkout.
+# These catch one made by running a tool with ITULIB_HOME pointed inside the tree.
+.itulib/
+itulib-home/
+*.sqlite3
+*.sqlite3-journal
+*.db
+
+# --- Captures and secrets -----------------------------------------------------------------------------------
+# A HAR holds cookies, tokens and response bodies. Analyse it outside the repository.
+*.har
+.env
+.env.*
+*.pem
+*.key
+
+# --- Scratch: the pre-commit hook in the workspace refuses these, so do not even stage them ----------------
+probe_*.py
+*.log
+*.out
+*.tmp
+scratch/
+tmp/
+
+# --- Build, packaging and test output -----------------------------------------------------------------------
+build/
+*.egg-info/
+*.whl
+*.tar.gz
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+
+# --- Agent worktrees and local tool state (shared settings, if any are ever added, stay tracked) -----------
+.claude/worktrees/
+.claude/settings.local.json
+.vscode/
+.idea/
+
+# --- OS --------------------------------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
