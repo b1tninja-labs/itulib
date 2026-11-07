@@ -472,3 +472,65 @@ def test_compare_of_a_clause_in_neither_edition_is_not_reported_as_unchanged(
     )
     result = index.compare(SYNTHETIC, OTHER, "9.9")
     assert not result.in_a and not result.in_b and not result.same
+
+
+def test_question_words_are_not_search_terms_but_modal_verbs_are() -> None:
+    assert text.fts_query("How do I count the widgets") == '"count" "widgets"'
+    assert text.fts_query("What is the default?") == '"default?"', "punctuation does not hide a question word"
+    assert '"Must"' in text.fts_query("Must the members be sorted"), "modals carry meaning in a normative text"
+    assert text.fts_query("how do I") == '"how" "do" "I"', "a query of nothing else is still a query"
+
+
+def test_asks_for_definition_only_on_definition_words() -> None:
+    assert text.asks_for_definition("What is the definition of a widget?")
+    assert text.asks_for_definition("widget meaning")
+    assert not text.asks_for_definition("How do I define an enumerated type")
+
+
+def test_definitions_are_demoted_unless_the_question_asks_for_one(
+    home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        text,
+        "pages",
+        lambda _p: [
+            "3.1 widget widget: a widget is a thing that is counted whole and nothing else at all.\n"
+            "4.1 Widgets are counted in whole units by the rule that is stated here in words."
+        ],
+    )
+    index.build(SYNTHETIC)
+    monkeypatch.setattr(index, "DEMOTION", 1.0)
+    assert index.search_mode(SYNTHETIC, "widget")[0][0].number == "3.1", (
+        "fixture: without the demotion the definition leads"
+    )
+    monkeypatch.setattr(index, "DEMOTION", 0.6)
+    plain, _ = index.search_mode(SYNTHETIC, "widget")
+    assert plain[0].number == "4.1", "with it, the rule outranks a definition that merely repeats the word"
+    asked, _ = index.search_mode(SYNTHETIC, "definition of widget")
+    assert asked[0].number == "3.1", "and a question about what the term means still finds the definition"
+
+
+def test_informative_annexes_are_demoted(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    pages = [
+        "1 Rules Widgets are counted in whole units by the rule that is stated here in words and in full.\n"
+        "Annex A Examples (This annex does not form an integral part of this Recommendation.) "
+        "Widgets widgets appear in this explanatory text.\n"
+        "A.1 First example Widgets are discussed here at some length too and the text goes on."
+    ]
+    monkeypatch.setattr(text, "pages", lambda _p: pages)
+    listed = [("1", "Rules"), ("A", "Examples"), ("A.1", "First example")]
+    monkeypatch.setattr(text, "headings", lambda _p, _t=None: listed)
+    index.build(SYNTHETIC)
+    monkeypatch.setattr(index, "DEMOTION", 1.0)
+    assert index.search_mode(SYNTHETIC, "widgets")[0][0].number == "A", "fixture: without it the annex leads"
+    monkeypatch.setattr(index, "DEMOTION", 0.6)
+    hits, _ = index.search_mode(SYNTHETIC, "widgets")
+    assert hits[0].number == "1", "a normative clause beats an informative annex that repeats the word more often"
+    assert {h.number for h in hits} >= {"A", "A.1"}, "the annex is demoted, not hidden"
+
+
+def test_search_hits_say_whether_they_contained_every_term(home: Path) -> None:
+    hits, relaxed = index.search_mode(SYNTHETIC, "widgets counted")
+    assert relaxed and any(h.all_terms for h in hits) and any(not h.all_terms for h in hits)
+    exact, relaxed = index.search_mode(SYNTHETIC, "widgets")
+    assert not relaxed and all(h.all_terms for h in exact), "one term: every hit has it"

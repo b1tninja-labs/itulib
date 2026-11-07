@@ -60,7 +60,7 @@ def test_hyphenated_queries_survive_the_search_sanitiser() -> None:
 
 
 def test_quotes_in_a_query_are_escaped_not_interpreted() -> None:
-    assert text.fts_query('say "hello"') == '"say" """hello"""'
+    assert text.fts_query('print "hello"') == '"print" """hello"""'
 
 
 def test_an_empty_query_is_refused_rather_than_matching_everything() -> None:

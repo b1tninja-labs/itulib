@@ -8,7 +8,6 @@ of a search result.
 
 from __future__ import annotations
 
-import dataclasses
 import hashlib
 import pathlib
 import re
@@ -96,35 +95,62 @@ def search(edition: Edition, query: str, limit: int = 8) -> tuple[Hit, ...]:
     return search_mode(edition, query, limit)[0]
 
 
+CANDIDATES = 150
+DEMOTION = 0.6  # score multiplier for clauses that are rarely the answer; flat optimum between 0.4 and 0.8
+_INFORMATIVE = re.compile(r"does not form an integral part", re.IGNORECASE)
+
+
 def search_mode(edition: Edition, query: str, limit: int = 8) -> tuple[tuple[Hit, ...], bool]:
-    """(hits, relaxed). Every term must match first; if that finds nothing the terms are OR-ed, and `relaxed`
-    says so, because "some of your words matched" is a weaker answer than "all of them did" and the caller
-    should be able to tell which one it is holding."""
-    strict = _match(edition, text.fts_query(query), limit)
-    if len(strict) >= limit or len(query.split()) < 2:
-        return strict, False
-    seen = {hit.number for hit in strict}
-    extra = tuple(
-        dataclasses.replace(hit, all_terms=False)
-        for hit in _match(edition, text.fts_query(query, any_term=True), limit + len(strict))
-        if hit.number not in seen
-    )
-    merged = (*strict, *extra)[:limit]
-    return merged, len(merged) > len(strict)
+    """(hits, relaxed): the best clauses for a question, best first.
 
+    Candidates are every clause that contains ANY query term, ranked by BM25 with the heading weighted above the
+    body, then adjusted by where the clause sits: definitions (clause 3.x) and informative annexes are demoted
+    unless the query asks what a term means, because a definition that merely mentions the words is rarely the rule
+    that was asked about. Each hit says whether it contained every term, and `relaxed` is true when some did not,
+    because "some of your words matched" is a weaker answer than "all of them did".
 
-def _match(edition: Edition, prepared: str, limit: int) -> tuple[Hit, ...]:
+    Tried and dropped on the blind set because they did not help: pushing a subtree's best score up to its
+    heading-only parent, a bonus for words found in the heading, and a bonus for all-terms matches.
+    """
+    strict_query = text.fts_query(query)
+    loose_query = text.fts_query(query, any_term=True)
+    wants_definitions = text.asks_for_definition(query)
     connection = _open(edition)
     try:
         # BM25_WEIGHTS is a module constant, never user input.
-        cursor = connection.execute(
+        rows = connection.execute(
             f"SELECT number, title, snippet(clause, 3, '', '', ' … ', 24), bm25(clause, {BM25_WEIGHTS}) FROM clause "  # noqa: S608
             f"WHERE clause MATCH ? ORDER BY bm25(clause, {BM25_WEIGHTS}) LIMIT ?",
-            (prepared, limit),
+            (loose_query, CANDIDATES),
+        ).fetchall()
+        every_term = (
+            {row[0] for row in connection.execute("SELECT number FROM clause WHERE clause MATCH ?", (strict_query,))}
+            if strict_query != loose_query
+            else {row[0] for row in rows}
         )
-        return tuple(Hit(number=row[0], title=row[1], excerpt=row[2], score=row[3]) for row in cursor)
+        informative = _informative_annexes(connection)
     finally:
         connection.close()
+    adjusted = []
+    for number, title, excerpt, score in rows:
+        factor = 1.0
+        if number.startswith("3.") and not wants_definitions:
+            factor *= DEMOTION
+        if number.split(".")[0] in informative:
+            factor *= DEMOTION
+        adjusted.append(Hit(number, title, excerpt or title, score * factor, number in every_term))
+    adjusted.sort(key=lambda hit: hit.score)  # bm25 is negative: more negative is better
+    top = tuple(adjusted[:limit])
+    return top, any(not hit.all_terms for hit in top)
+
+
+def _informative_annexes(connection: sqlite3.Connection) -> set[str]:
+    """Letters of the annexes that say they do not form an integral part of the recommendation."""
+    return {
+        number
+        for number, body in connection.execute("SELECT number, body FROM clause WHERE length(number) = 1")
+        if _INFORMATIVE.search(body)
+    }
 
 
 def read(edition: Edition, number: str) -> text.Clause | None:
