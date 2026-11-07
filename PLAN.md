@@ -74,7 +74,8 @@ authority rather than this table.
   stays the exit test.
 - **Not a conformance oracle.** An unresolved marker stays unresolved. The codec must not code against an
   invented interpretation, which is why `test_defect_corpus.py` refuses primitive indefinite length.
-- Scope grows X.680 → X.681/X.682 → X.509 (jointly ISO/IEC 9594-8) only as questions arrive.
+- Scope grows X.680 → X.681/X.682 → X.509 (jointly ISO/IEC 9594-8) only as questions arrive. The X.500 family
+  (X.500, X.501, X.508-X.511, X.518-X.521, X.525, X.530) is registered as of 2026-11-07; see `ia.catalog_x500`.
 
 ## 5. Exit test
 

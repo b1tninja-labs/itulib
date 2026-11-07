@@ -183,6 +183,150 @@ IN_FORCE: tuple[Edition, ...] = (
         octets=745_268,
         note="Catalog sync 2026-11-07: id taken from the ITU component page, digest from the bytes downloaded.",
     ),
+    Edition(
+        key="X.500#2019-10",
+        rec="X.500",
+        edition="10/2019",
+        title="The Directory: Overview of concepts, models and services",
+        status="in force",
+        artifact="T-REC-X.500-201910-I!!PDF-E",
+        sha256="616be799e0d7932c203e339f3d5576bd58014711be58558b900f94d46ad9bb98",
+        octets=1_761_409,
+        note="X.500 catalog sync 2026-11-07: id read off the ITU component page, which lists this PDF as freely "
+        "available at 1761409 bytes; digest from the bytes downloaded.",
+    ),
+    Edition(
+        key="X.501#2019-10",
+        rec="X.501",
+        edition="10/2019",
+        title="The Directory: Models",
+        status="in force",
+        artifact="T-REC-X.501-201910-I!!PDF-E",
+        sha256="fa16c552c65a67ed0ab5be0291db368fc38ad94cb64df0bd90a9747586a3751b",
+        octets=2_767_911,
+        note="X.500 catalog sync 2026-11-07: id read off the ITU component page, which lists this PDF as freely "
+        "available at 2767911 bytes; digest from the bytes downloaded.",
+    ),
+    Edition(
+        key="X.508#2024-10",
+        rec="X.508",
+        edition="10/2024",
+        title="The Directory: Key management and public-key infrastructure establishment and maintenance",
+        status="in force",
+        artifact="T-REC-X.508-202410-I!!PDF-E",
+        sha256="5bc486d7a74eafea9b59beca87e2184f6e46b427d8319776fa28db4916d88996",
+        octets=5_269_130,
+        note="X.500 catalog sync 2026-11-07: id read off the ITU component page, which lists this PDF as freely "
+        "available at 5269130 bytes; digest from the bytes downloaded.",
+    ),
+    Edition(
+        key="X.509#2019-10",
+        rec="X.509",
+        edition="10/2019",
+        title="The Directory: Public-key and attribute certificate frameworks",
+        status="in force",
+        artifact="T-REC-X.509-201910-I!!PDF-E",
+        sha256="1f4ea2939ecc31a3433c499084d485e770f9b8dcee55a0ba9fe4c27128822e8c",
+        octets=3_581_573,
+        note="X.500 catalog sync 2026-11-07: id read off the ITU component page, which lists this PDF as freely "
+        "available at 3581573 bytes; digest from the bytes downloaded.",
+    ),
+    Edition(
+        key="X.510#2023-10",
+        rec="X.510",
+        edition="10/2023",
+        title="The Directory: Protocol specifications for secure operations",
+        status="in force",
+        artifact="T-REC-X.510-202310-I!!PDF-E",
+        sha256="c49f3336cfd6ffbe2e188fc92a9cf3cb1cb83adea5210816d41cae9a390e9dbc",
+        octets=2_368_874,
+        note="X.500 catalog sync 2026-11-07: id read off the ITU component page, which lists this PDF as freely "
+        "available at 2368874 bytes; digest from the bytes downloaded.",
+    ),
+    Edition(
+        key="X.511#2019-10",
+        rec="X.511",
+        edition="10/2019",
+        title="The Directory: Abstract service definition",
+        status="in force",
+        artifact="T-REC-X.511-201910-I!!PDF-E",
+        sha256="fba5830e90c3084b5bae97dce0547507e4cc864bffc0e0e4e6ffab95dab83c63",
+        octets=2_253_433,
+        note="X.500 catalog sync 2026-11-07: id read off the ITU component page, which lists this PDF as freely "
+        "available at 2253433 bytes; digest from the bytes downloaded.",
+    ),
+    Edition(
+        key="X.518#2019-10",
+        rec="X.518",
+        edition="10/2019",
+        title="The Directory: Procedures for distributed operation",
+        status="in force",
+        artifact="T-REC-X.518-201910-I!!PDF-E",
+        sha256="8c3333351bac45f65dd33ed6dbd09e55b173129fff63c5064a699b298e0b608d",
+        octets=4_130_297,
+        note="X.500 catalog sync 2026-11-07: id read off the ITU component page, which lists this PDF as freely "
+        "available at 4130297 bytes; digest from the bytes downloaded.",
+    ),
+    Edition(
+        key="X.519#2019-10",
+        rec="X.519",
+        edition="10/2019",
+        title="The Directory: Protocol specifications",
+        status="in force",
+        artifact="T-REC-X.519-201910-I!!PDF-E",
+        sha256="d09b59636bbbce77aaab3d0e8b23e17c6a1e507a535e65e5a46217175d9ac924",
+        octets=1_651_882,
+        note="X.500 catalog sync 2026-11-07: id read off the ITU component page, which lists this PDF as freely "
+        "available at 1651882 bytes; digest from the bytes downloaded.",
+    ),
+    Edition(
+        key="X.520#2019-10",
+        rec="X.520",
+        edition="10/2019",
+        title="The Directory: Selected attribute types",
+        status="in force",
+        artifact="T-REC-X.520-201910-I!!PDF-E",
+        sha256="78cac8b619e69af06ae0ae9216716d400117152086e85c4ad267efef80bd3fd1",
+        octets=2_228_421,
+        note="X.500 catalog sync 2026-11-07: id read off the ITU component page, which lists this PDF as freely "
+        "available at 2228421 bytes; digest from the bytes downloaded.",
+    ),
+    Edition(
+        key="X.521#2019-10",
+        rec="X.521",
+        edition="10/2019",
+        title="The Directory: Selected object classes",
+        status="in force",
+        artifact="T-REC-X.521-201910-I!!PDF-E",
+        sha256="da551843f975f7d54cb0bef92a3b9cec7efcfdf3177e9d0ce434d9424a7f63e3",
+        octets=1_079_233,
+        note="X.500 catalog sync 2026-11-07: id read off the ITU component page, which lists this PDF as freely "
+        "available at 1079233 bytes; digest from the bytes downloaded.",
+    ),
+    Edition(
+        key="X.525#2019-10",
+        rec="X.525",
+        edition="10/2019",
+        title="The Directory: Replication",
+        status="in force",
+        artifact="T-REC-X.525-201910-I!!PDF-E",
+        sha256="49eedd99ab3892ad85ac46ac70d20548dec7e9ed6043d8a446cf7874e30b5efd",
+        octets=1_288_207,
+        note="X.500 catalog sync 2026-11-07: id read off the ITU component page, which lists this PDF as freely "
+        "available at 1288207 bytes; digest from the bytes downloaded.",
+    ),
+    Edition(
+        key="X.530#2008-11",
+        rec="X.530",
+        edition="11/2008",
+        title="The Directory: Use of systems management for administration of the Directory",
+        status="in force",
+        artifact="T-REC-X.530-200811-I!!PDF-E",
+        sha256="2c6da6878e3f83b427dcd59f8e741a4daaadd8c545bc818d4081b65742520090",
+        octets=675_123,
+        note="X.500 catalog sync 2026-11-07: id read off the ITU component page, which lists this PDF as freely "
+        "available at 675123 bytes; digest from the bytes downloaded.",
+    ),
 )
 
 SUPERSEDED: tuple[Edition, ...] = (
@@ -227,6 +371,159 @@ AMENDMENTS: tuple[Amendment, ...] = (
         octets=194_138,
     ),
     Amendment(
+        key="X.500#2019-10!amd1",
+        rec="X.500",
+        label="Amendment 1 (10/2024) to Rec. X.500 (2019): Miscellaneous enhancements",
+        status="in force",
+        artifact="T-REC-X.500-202410-I!Amd1!PDF-E",
+        note="X.500 catalog sync 2026-11-07: listed In force on the X.500 page, PDF 218291 bytes as listed. "
+        "Not applied to the base text and not indexed; read it with `itulib read X.500#2019-10!amd1`.",
+        sha256="df26e76b8cd2e9e17de507f2187f15dc10d11b8894894758eb3eeed7e7b8ec8d",
+        octets=218_291,
+    ),
+    Amendment(
+        key="X.501#2019-10!amd1",
+        rec="X.501",
+        label="Amendment 1 (10/2021) to Rec. X.501 (2019): Miscellaneous enhancements",
+        status="in force",
+        artifact="T-REC-X.501-202110-I!Amd1!PDF-E",
+        note="X.500 catalog sync 2026-11-07: listed In force on the X.501 page, PDF 351086 bytes as listed. "
+        "Not applied to the base text and not indexed; read it with `itulib read X.501#2019-10!amd1`.",
+        sha256="24ad1e87d3c9eff366cc178616fa88c4b6e9c47ea29504001259337bea6a1bdb",
+        octets=351_086,
+    ),
+    Amendment(
+        key="X.501#2019-10!amd2",
+        rec="X.501",
+        label="Amendment 2 (10/2024) to Rec. X.501 (2019): Miscellaneous enhancements",
+        status="in force",
+        artifact="T-REC-X.501-202410-I!Amd2!PDF-E",
+        note="X.500 catalog sync 2026-11-07: listed In force on the X.501 page, PDF 550429 bytes as listed. "
+        "Not applied to the base text and not indexed; read it with `itulib read X.501#2019-10!amd2`.",
+        sha256="084fbedc61083c3e5b2a0f6b6c5e44b62f6d1cf0ed1d93bb5ed59ac08fea5872",
+        octets=550_429,
+    ),
+    Amendment(
+        key="X.509#2019-10!cor1",
+        rec="X.509",
+        label="Corrigendum 1 (10/2021) to Rec. X.509 (2019)",
+        status="in force",
+        artifact="T-REC-X.509-202110-I!Cor1!PDF-E",
+        note="X.500 catalog sync 2026-11-07: listed In force on the X.509 page, PDF 367050 bytes as listed. "
+        "Not applied to the base text and not indexed; read it with `itulib read X.509#2019-10!cor1`.",
+        sha256="ddcc42186f120c51d40ba278b0ca31f528fde851ea663a69474fbcd09bd06f7c",
+        octets=367_050,
+    ),
+    Amendment(
+        key="X.509#2019-10!cor2",
+        rec="X.509",
+        label="Corrigendum 2 (10/2023) to Rec. X.509 (2019)",
+        status="in force",
+        artifact="T-REC-X.509-202310-I!Cor2!PDF-E",
+        note="X.500 catalog sync 2026-11-07: listed In force on the X.509 page, PDF 352052 bytes as listed. "
+        "Not applied to the base text and not indexed; read it with `itulib read X.509#2019-10!cor2`.",
+        sha256="583416a04fcd76a201e43486d92eb183c5ddae3f03947bf43d50b8185ab5f5a9",
+        octets=352_052,
+    ),
+    Amendment(
+        key="X.509#2019-10!amd1",
+        rec="X.509",
+        label="Amendment 1 (10/2024) to Rec. X.509 (2019): Miscellaneous enhancements",
+        status="in force",
+        artifact="T-REC-X.509-202410-I!Amd1!PDF-E",
+        note="X.500 catalog sync 2026-11-07: listed In force on the X.509 page, PDF 300835 bytes as listed. "
+        "Not applied to the base text and not indexed; read it with `itulib read X.509#2019-10!amd1`.",
+        sha256="7b0f16ec963fead56accab523fef543295f7946272330b2843799ade96d6cf76",
+        octets=300_835,
+    ),
+    Amendment(
+        key="X.511#2019-10!amd1",
+        rec="X.511",
+        label="Amendment 1 (10/2024) to Rec. X.511 (2019): Miscellaneous enhancements",
+        status="in force",
+        artifact="T-REC-X.511-202410-I!Amd1!PDF-E",
+        note="X.500 catalog sync 2026-11-07: listed In force on the X.511 page, PDF 246331 bytes as listed. "
+        "Not applied to the base text and not indexed; read it with `itulib read X.511#2019-10!amd1`.",
+        sha256="322169a1f4861f4ca00c49b5c4c7e41686ea3c762d3faa416c9c21888064a806",
+        octets=246_331,
+    ),
+    Amendment(
+        key="X.518#2019-10!amd1",
+        rec="X.518",
+        label="Amendment 1 (10/2024) to Rec. X.518 (2019): Miscellaneous enhancements",
+        status="in force",
+        artifact="T-REC-X.518-202410-I!Amd1!PDF-E",
+        note="X.500 catalog sync 2026-11-07: listed In force on the X.518 page, PDF 239174 bytes as listed. "
+        "Not applied to the base text and not indexed; read it with `itulib read X.518#2019-10!amd1`.",
+        sha256="312d69f9f4094548ce8f15cee1d43dd42ce5070f2491250a9fb92121e0032ff3",
+        octets=239_174,
+    ),
+    Amendment(
+        key="X.519#2019-10!amd1",
+        rec="X.519",
+        label="Amendment 1 (10/2024) to Rec. X.519 (2019): Miscellaneous enhancements",
+        status="in force",
+        artifact="T-REC-X.519-202410-I!Amd1!PDF-E",
+        note="X.500 catalog sync 2026-11-07: listed In force on the X.519 page, PDF 278528 bytes as listed. "
+        "Not applied to the base text and not indexed; read it with `itulib read X.519#2019-10!amd1`.",
+        sha256="40d6c66587c395836491589d9dbe0660e349b30e39f79b4ed9b2118859829952",
+        octets=278_528,
+    ),
+    Amendment(
+        key="X.520#2019-10!amd1",
+        rec="X.520",
+        label="Amendment 1 (10/2024) to Rec. X.520 (2019): Miscellaneous enhancements",
+        status="in force",
+        artifact="T-REC-X.520-202410-I!Amd1!PDF-E",
+        note="X.500 catalog sync 2026-11-07: listed In force on the X.520 page, PDF 560983 bytes as listed. "
+        "Not applied to the base text and not indexed; read it with `itulib read X.520#2019-10!amd1`.",
+        sha256="20ff1efd7cee34887939b73d82bd9f4e32e8ea39d8df2ebc2c9eb1302de7671d",
+        octets=560_983,
+    ),
+    Amendment(
+        key="X.521#2019-10!amd1",
+        rec="X.521",
+        label="Amendment 1 (10/2024) to Rec. X.521 (2019): Miscellaneous enhancements",
+        status="in force",
+        artifact="T-REC-X.521-202410-I!Amd1!PDF-E",
+        note="X.500 catalog sync 2026-11-07: listed In force on the X.521 page, PDF 231439 bytes as listed. "
+        "Not applied to the base text and not indexed; read it with `itulib read X.521#2019-10!amd1`.",
+        sha256="f78c10f0266c004c6cc5fb822a2cfb758439734aba6977578ab68969d24cd435",
+        octets=231_439,
+    ),
+    Amendment(
+        key="X.525#2019-10!amd1",
+        rec="X.525",
+        label="Amendment 1 (10/2024) to Rec. X.525 (2019): Miscellaneous enhancements",
+        status="in force",
+        artifact="T-REC-X.525-202410-I!Amd1!PDF-E",
+        note="X.500 catalog sync 2026-11-07: listed In force on the X.525 page, PDF 207369 bytes as listed. "
+        "Not applied to the base text and not indexed; read it with `itulib read X.525#2019-10!amd1`.",
+        sha256="787be5f950b4b3f950326a1bd80ffd36979043918bf41ae35bed65f664c743c8",
+        octets=207_369,
+    ),
+    Amendment(
+        key="X.509#2019-10!cor3",
+        rec="X.509",
+        label="Corrigendum 3 (07/2026) to Rec. X.509 (2019)",
+        status="in force (prepublished)",
+        artifact=None,
+        note="Not registered. The X.509 page lists it 'In force (prepublished)', free download, 492,808 bytes "
+        "(id T-REC-X.509-202607-P!Cor3!PDF-E). `dologin_pub.asp` returns an 11,563-byte login page for it; only "
+        "`dologin.asp`, the URL on the component page itself, served a %PDF of the listed size. That is not the "
+        "URL template this registry uses, and a prepublished text can change before final publication, so "
+        "pinning a digest now would pin a draft.",
+    ),
+    Amendment(
+        key="X.510#2023-10!amd1",
+        rec="X.510",
+        label="Amendment 1 (07/2026) to Rec. X.510 (2023)",
+        status="in force (prepublished)",
+        artifact=None,
+        note="Not registered: the component page restricts it to TIES users (listed 392,348 bytes); "
+        "`dologin_pub.asp` and `dologin.asp` both return a login page.",
+    ),
+    Amendment(
         key="X.690#2002-07!amd2",
         rec="X.690",
         label="Amendment 2 (06/2006) Time type support",
@@ -264,6 +561,13 @@ SERIES: dict[str, str] = {
     "Y": "Global information infrastructure, Internet protocol aspects, next-generation networks, "
     "Internet of Things and smart cities",
     "Z": "Languages and general software aspects for telecommunication systems",
+}
+
+# In-force X.500-series recommendations that could not be registered, with the reason read off ITU's page.
+NOT_REGISTERED: dict[str, str] = {
+    "X.506": "X.506 (07/26), 'The Directory: General methods for migration of cryptographic algorithms': "
+    "In force (prepublished) and 'Document restricted to TIES users' (listed 883,728 bytes); both download URLs "
+    "return a login page.",
 }
 
 BY_REC: dict[str, tuple[Edition, ...]] = {}

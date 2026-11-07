@@ -49,7 +49,7 @@ def test_resolve_refuses_to_guess() -> None:
     with pytest.raises(KeyError):
         sources.resolve("X.999")
     with pytest.raises(KeyError):
-        sources.current("X.509")
+        sources.current("X.506")
 
 
 def test_errata_are_registered_and_the_unfetchable_ones_say_so() -> None:
@@ -75,3 +75,41 @@ def test_resolve_document_finds_an_erratum_and_still_refuses_to_guess() -> None:
     assert sources.resolve_document("X.690").key == "X.690#2021-02"
     with pytest.raises(KeyError):
         sources.resolve_document("X.690!nonsense")
+
+
+def test_x500_family_is_registered_and_the_restricted_one_is_not() -> None:
+    """X.509 is what certledger cites. X.506 is TIES-only on ITU's page, so it is recorded with its reason."""
+    assert sources.current("X.509").edition == "10/2019"
+    assert sources.resolve("X.509#2019-10").artifact == "T-REC-X.509-201910-I!!PDF-E"
+    registered = {edition.rec for edition in sources.IN_FORCE}
+    assert {
+        "X.500",
+        "X.501",
+        "X.508",
+        "X.509",
+        "X.510",
+        "X.511",
+        "X.518",
+        "X.519",
+        "X.520",
+        "X.521",
+        "X.525",
+    } <= registered
+    assert set(sources.NOT_REGISTERED).isdisjoint(registered)
+    assert all(reason for reason in sources.NOT_REGISTERED.values())
+
+
+def test_every_amendment_belongs_to_a_registered_recommendation() -> None:
+    registered = {edition.rec for edition in (*sources.IN_FORCE, *sources.SUPERSEDED)}
+    keys = [item.key for item in sources.AMENDMENTS]
+    assert len(keys) == len(set(keys))
+    for item in sources.AMENDMENTS:
+        assert item.rec in registered, item.key
+        assert item.key.startswith(item.rec + "#"), item.key
+
+
+def test_prepublished_amendments_are_not_pinned() -> None:
+    """A prepublished text can change before final publication; a digest of it would be a digest of a draft."""
+    for item in sources.AMENDMENTS:
+        if "prepublished" in item.status:
+            assert item.artifact is None and not item.sha256, item.key
