@@ -4,8 +4,12 @@ ITU-T recommendations as a **local, citation-precise library and MCP server**. I
 (X.680-X.697): the normative source for ASN.1 and for the BER, CER, DER and PER encoding rules, none of which is
 in the RFC series, so an RFC-only tool such as `rfclib` cannot answer "what does X.690 actually say?".
 
+**Not on PyPI yet** (`pip index versions itulib` found no distribution on 2026-11-06), so install from a clone:
+
 ```
-pip install "itulib[mcp]"
+git clone https://github.com/b1tninja/itulib.git
+cd itulib
+python -m pip install -e ".[mcp]"
 itulib sync                      # fetch + index the 12 ASN.1 recommendations into ~/.itulib (about 14 MB)
 itulib search X.690 set-of order
 itulib read X.690§11.6
@@ -40,6 +44,7 @@ status 2 and tells you to install `itulib[mcp]`.
 | `itu_grep` | regex over clause bodies with excerpts, token-budgeted |
 | `itu_errata` | errata and amendments registered for a recommendation, with the erratum text once fetched |
 | `itu_compare` | what changed in a clause between two editions (X.690 2008, 2015, 2021), by sentence |
+| `itu_catalog` | the ITU-T catalogue read by `itulib catalog sync`: in-force editions and the formats offered (metadata only) |
 | `itu_info` | registered editions, digests and what is fetched (needs no corpus) |
 
 It also serves `itu://{rec}/{number}` as a resource template and two prompts, `explain_clause` and
@@ -54,6 +59,25 @@ One grammar everywhere: `X.690§11.6`, `X.690§11.6¶2`, or the looser `X.690 11
 Annex clauses work too (`X.690§A.1`). **`¶n` is the nth sentence of the extracted clause, not ITU's own
 paragraph numbering**: PDF extraction flattens paragraph structure, so a `¶` citation should travel with the
 clause number and edition, which `cite` always gives.
+
+## The catalogue
+
+ITU publishes no bulk download and no machine-readable index, so `itulib catalog` reads the public HTML pages a person
+would, politely (one request per second, an identifying User-Agent, a disk cache, and only `/rec/` and
+`/dms_pubrec/`, which `robots.txt` allows). It keeps **metadata only** under `$ITULIB_HOME/catalog/`: numbers, titles,
+statuses, and for each in-force edition the formats offered (PDF, EPUB, Word, table of contents, summary), their sizes
+and whether they are freely available.
+
+```
+itulib catalog sync X                      # series listing: 1 request
+itulib catalog sync X --details --limit 20 # editions and formats; resumable
+itulib catalog sync X --details --rec X.509 X.690
+itulib catalog list --series X --format EPB --free
+itulib catalog show X.509
+```
+
+It downloads no recommendation. EPUB (which carries the document's own structure) exists for few recommendations,
+PDF for nearly all, and Word is mostly TIES-only; `catalog.best_source` encodes that preference.
 
 ## What is covered
 

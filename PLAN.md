@@ -24,10 +24,15 @@ support"**, and Corrigenda 05/07, 10/11, 03/14. Two 1997-era corrigenda are mark
 (2015) carries Corrigenda 1–3 and Amendment 1 (05/18).
 
 **ITU publishes errata.** The X.690 page lists *X.690 (2021) Erratum 1 (09/21) to Rec. X.690 (2021) |
-ISO/IEC 8825-1:2021* as **In force** — the analogue of `rfclib.errata`, which is why `itu_errata` exists. Not
-yet solved: the download id. The obvious `!!ERSN1-E` and `!!DOC-E` artefacts return **HTTP 500**, and the
-collective X.680–X.693 Word archive redirects to a `choice_pub.asp` interstitial that returns HTML. The PDF
-path works; the Word and erratum paths need their real ids read off the component page first.
+ISO/IEC 8825-1:2021* as **In force** — the analogue of `rfclib.errata`, which is why `itu_errata` exists. The
+download id was the open problem when this plan was written: the obvious `!!ERSN1-E` and `!!DOC-E` artefacts
+return **HTTP 500**. It has since been read off the erratum's own page (`T-REC-X.690-202109-I!Err1!PDF-E`),
+fetched and pinned (ROADMAP.md `ia.erratum_artefact_ids`). The collective X.680–X.693 Word archive still
+redirects to a `choice_pub.asp` interstitial that returns HTML, and is not used.
+
+The table above is the first two editions measured. The registry now holds all twelve X.680-X.697 recommendations
+in their 02/2021 editions plus the superseded X.690 11/2008 and 08/2015 base texts, each with a pinned digest
+(`itulib/sources.py`; ROADMAP.md `ia.catalog_asn1`, `ia.superseded_editions`).
 
 ## 2. The licence decides the architecture
 
@@ -49,22 +54,25 @@ redistributable, so `rfclibrary` vendors `data/` and a clone is self-contained. 
 
 ## 3. The backlog this exists to retire
 
-`VECTORS.md` marks a row `[verify against X.690]` when the rule was written from knowledge of the encoding
+`VECTORS.md` marked a row `[verify against X.690]` when the rule was written from knowledge of the encoding
 rules rather than from the text, and line 106 records the price: an earlier `oid-first-arc-high` row asserted
-that arc 3 was illegal, and **that was wrong**. Line 249 lists retiring every marker as still owed. Each row
-was queried against the fetched 02/2021 text; the rules below are paraphrased, and the citation is the
-authority rather than this table.
+that arc 3 was illegal, and **that was wrong**. The backlog is now retired: asn1core commit `0fc1e5f`
+(2026-11-06) attached an edition and subclause to all nine markers, and `VECTORS.md` line 253 records them as
+resolved. Each row was queried against the fetched 02/2021 text and re-read with `itulib read` on 2026-11-06;
+the rules below are paraphrased, and the citation is the authority rather than this table.
 
 | Row | Clause in X.690 (02/2021) | Status |
 |---|---|---|
-| `tag-nonminimal` (`9F 80 01 00`) | §8.1.2.4.2, high-tag-number identifier octets | **resolved**: the minimality rule the row needs is stated there |
-| `len-nonminimal`, `len-undefined-high` | §8.1.3, length octets | located; quote the subclause before flipping either row |
-| `int-nonmin` (`02 02 00 01`) | §8.3.1–8.3.3, integer encoding | **resolved**: minimality is stated, with a NOTE giving its purpose |
-| `bool-nonzero` (`01 01 02`) | §8.2.1–8.2.2 against **§11.1** | **resolved**: BER permits any non-zero contents octet for TRUE; §11.1 narrows it to an all-ones octet under CER and DER |
+| `tag-nonminimal` (`9F 80 01 00`) | §8.1.2.4.2 c), high-tag-number identifier octets | **resolved**: the minimality rule the row needs is stated there |
+| `len-nonminimal` | §10.1, with §8.1.3 for the BER length forms | **resolved**: DER lengths are definite and minimal, so 127 in long form is refused |
+| `len-indefinite` (primitive) | §8.1.3.2 a) | **resolved**: a primitive encoding always takes the definite form, so primitive-with-indefinite-length is never conforming |
+| `len-undefined-high` | §8.1.3, length octets | not one of the nine markers; `VECTORS.md` gives it no clause yet |
+| `int-nonmin` (`02 02 00 01`) | §8.3.2, integer encoding | **resolved**: minimality is stated, with a NOTE giving its purpose |
+| `bool-nonzero` (`01 01 02`) | §8.2.2 against **§11.1** | **resolved**: BER permits any non-zero contents octet for TRUE; §11.1 narrows it to an all-ones octet under CER and DER |
 | `setof-unsorted` | **§11.6**, with §8.10.3 for the SEQUENCE OF contrast and §9.3/§10.3 for `SET` | **resolved, and the row understates it**: DER orders the component encodings of a `SET OF` by comparing them as octet strings, padding the shorter with zero octets for the comparison only — the padding is never emitted. `SET` (not `OF`) components are ordered by tag under §9.3/§10.3, a different rule the row does not distinguish |
-| `time-leap-second` (`"500101000060Z"`) | §11.7 GeneralizedTime, §11.8 UTCTime | **re-pointed**: X.690 fixes the form and defers the alphabet to X.680 \| ISO/IEC 8824-1. Nothing in X.690 addresses a seconds value of 60 — searched, no match — so the marker belongs on X.680 |
-| `oid-first-arc-high` (`06 02 7F 01`) | §8.19.1–8.19.2 | **partly**: clause located; the two-arc combination rule still needs its subclause quoted |
-| `printable-charset` | X.680 restricted alphabet | X.680 side; corpus fetched, not yet queried |
+| `time-leap-second` (`"500101000060Z"`) | §11.7 GeneralizedTime, §11.8 UTCTime | **re-pointed**: X.690 fixes the form and defers the alphabet to X.680 \| ISO/IEC 8824-1. Nothing in X.690 addresses a seconds value of 60 — searched, no match — so the marker belongs on X.680, where §47.3 bounds UTCTime seconds at 00 to 59: `60` is an ill-formed value |
+| `oid-first-arc-high` (`06 02 7F 01`) | §8.19.4 | **resolved**: the first subidentifier packs the first two components as `(X*40) + Y`, and the NOTE limits 0 to 39 to the nodes under X = 0 and X = 1, so `0x7F` is `2.47` and the old "illegal" row was wrong |
+| `printable-charset` | X.680 §41.4, Table 10 | **resolved** (X.680 side): the PrintableString alphabet is listed there |
 
 ## 4. Boundaries
 
@@ -74,7 +82,7 @@ authority rather than this table.
   stays the exit test.
 - **Not a conformance oracle.** An unresolved marker stays unresolved. The codec must not code against an
   invented interpretation, which is why `test_defect_corpus.py` refuses primitive indefinite length.
-- Scope grows X.680 → X.681/X.682 → X.509 (jointly ISO/IEC 9594-8) only as questions arrive.
+- X.680-X.697 are all registered now. Scope grows beyond them (X.509, jointly ISO/IEC 9594-8) only as questions arrive.
 
 ## 5. Exit test
 
