@@ -275,6 +275,101 @@ def test_a_pointer_that_matches_a_listed_number_is_not_its_heading() -> None:
     assert rows[0].body.startswith("The real heading text")
 
 
+def _by_number(source: str, listed: list[tuple[str, str]]) -> dict[str, text.Clause]:
+    return {c.number: c for c in text.clauses(source, listed)}
+
+
+def test_an_acronym_before_a_heading_is_not_the_word_per() -> None:
+    # "PER" is an encoding-rules acronym; lowercased it is the preposition "per", which introduces pointers.
+    rows = _by_number(
+        "10 The approach used for PER 10.1 Use of the notation 10.1.1 These rules make use of the notation at hand.",
+        [("10", "The approach used for PER"), ("10.1", "Use of the notation")],
+    )
+    assert "10.1" in rows and rows["10.1"].heading
+    assert "10.1.1" in rows
+    # the real word still introduces a pointer
+    assert text.refs("Charged per 8.1.2 of the schedule.").bare == ("8.1.2",)
+
+
+def test_a_heading_right_after_a_title_ending_in_a_pointer_word_is_still_a_heading() -> None:
+    rows = _by_number(
+        "15 The gadget clause 15.1 Generated parts 15.1.1 The first rule concerns the generated parts at length.",
+        [("15", "The gadget clause"), ("15.1", "Generated parts")],
+    )
+    assert rows["15.1"].heading and "15.1.1" in rows
+
+
+def test_a_number_that_is_a_located_heading_elsewhere_is_not_also_a_paragraph() -> None:
+    # A list of productions with their clause numbers precedes the clauses themselves.
+    source = (
+        "16 Structures The structures are defined in the following clauses: "
+        "AlphaStructureProduction 16.1 BetaStructureProduction 16.2 GammaStructureProduction 16.3 "
+        "16.1 Alpha encoding 16.1.1 The alpha rule is stated here with enough words to be kept. "
+        "16.2 Beta encoding 16.2.1 The beta rule is stated here with enough words to be kept."
+    )
+    listed = [("16", "Structures"), ("16.1", "Alpha encoding"), ("16.2", "Beta encoding")]
+    numbers = [c.number for c in text.clauses(source, listed)]
+    assert numbers.count("16.1") == 1 and numbers.count("16.2") == 1
+    assert "16.3" not in numbers
+    rows = _by_number(source, listed)
+    assert rows["16.1"].heading and rows["16.2"].heading
+
+
+def test_a_pointer_followed_by_a_function_word_does_not_take_the_place_of_the_paragraph() -> None:
+    source = (
+        "13 Tables 13.1 The first rule is long enough to be a paragraph. "
+        "13.2 The second rule is the result of applying 13.3 to the set containing one thing. "
+        "13.3 The third rule is the real one and carries its own words."
+    )
+    rows = _by_number(source, [("13", "Tables")])
+    assert rows["13.3"].body.startswith("The third rule")
+    assert "13.3 to the set" in rows["13.2"].body
+
+
+def test_definition_entries_with_lowercase_terms_are_still_paragraphs() -> None:
+    source = (
+        "3 Definitions 3.1 canonical form: a form chosen to be unique among all possible forms. "
+        "3.2 data value: information specified as the value of some type in the notation."
+    )
+    assert [c.number for c in text.clauses(source, [("3", "Definitions")])] == ["3", "3.1", "3.2"]
+
+
+ANNEXED = (
+    "5 Last clause 5.1 The final rule of the last clause is long enough to be kept. "
+    "Annex A Useful things (This annex forms an integral part of this Recommendation.) "
+    "A.1 This annex specifies something that is useful in practice. A.2 The second annex rule has words as well. "
+    "Annex B Notes (This annex does not form an integral part of this Recommendation.) "
+    "Annex C Samples (This annex does not form an integral part of this Recommendation.) "
+    "A preamble sentence that is not numbered. C.1 The first sample paragraph has enough words to be kept."
+)
+
+
+def test_annex_paragraphs_are_found_when_the_bookmarks_skip_the_annex_heading() -> None:
+    numbers = [c.number for c in text.clauses(ANNEXED, [("5", "Last clause")])]
+    # B has no numbered paragraphs and is skipped; the preamble before C.1 does not stop it either.
+    assert numbers == ["5", "5.1", "A.1", "A.2", "C.1"]
+
+
+def test_an_annex_shaped_number_without_the_annex_heading_is_not_a_paragraph() -> None:
+    source = "5 Last clause 5.1 The final rule of the last clause is long enough. C.1 Looks like an annex paragraph."
+    assert [c.number for c in text.clauses(source, [("5", "Last clause")])] == ["5", "5.1"]
+
+
+def test_a_number_glued_to_the_next_word_is_still_a_paragraph() -> None:
+    source = "22 Encoding 22.1 Actions 22.1.1If the thing is set, then the encoder acts on it as described."
+    assert "22.1.1" in _by_number(source, [("22", "Encoding"), ("22.1", "Actions")])
+
+
+def test_pointers_qualified_by_another_recommendation_are_foreign() -> None:
+    found = text.refs(
+        "Defined in Rec. ITU-T T.998 | ISO/IEC 9998-1, clause 12.3, and in clause 4.5. "
+        "Also clause 7.2 of Rec. ITU-T T.997, and see Rec. ITU-T T.998 | ISO/IEC 9998-1, 3.8.27."
+    )
+    assert found.clauses == ("4.5",)
+    assert set(found.foreign) == {"12.3", "7.2"}
+    assert "3.8.27" not in found.bare
+
+
 def test_clauses_without_a_listing_fall_back_to_the_heuristic() -> None:
     assert [c.number for c in text.clauses("1.1 A clause with enough body text to be kept as one.")] == ["1.1"]
 

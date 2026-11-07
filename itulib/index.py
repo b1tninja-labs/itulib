@@ -152,7 +152,7 @@ CHARS_PER_TOKEN = 4
 # bm25 column weights for (number, title, body). Titles are the document's own headings, so a title match is a much
 # stronger signal than the same word somewhere in a body.
 BM25_WEIGHTS = "2.0, 0.0, 15.0, 1.0"  # number, title (display only), head, body
-SCHEMA = "2"
+SCHEMA = "3"
 
 
 @dataclass(frozen=True)
