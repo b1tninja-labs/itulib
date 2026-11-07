@@ -33,10 +33,16 @@ INSTRUCTIONS = (
 
 
 def _guard(action: object) -> str:
+    """Serialise a tool result compactly.
+
+    These results are read by a model, so every character is a token's worth of cost. Indentation and escaped
+    non-ASCII ("\u00a7" for the section sign, six characters instead of one) were about a fifth of a typical
+    search or outline response; the JSON is otherwise unchanged and parses identically.
+    """
     try:
-        return json.dumps(action, indent=2)
+        return json.dumps(action, separators=(",", ":"), ensure_ascii=False)
     except TypeError:  # pragma: no cover - defensive
-        return json.dumps({"rendered": str(action)})
+        return json.dumps({"rendered": str(action)}, separators=(",", ":"), ensure_ascii=False)
 
 
 def build() -> object:

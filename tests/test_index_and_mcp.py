@@ -131,3 +131,13 @@ def test_mcp_without_the_extra_exits_2_with_the_install_hint(
     monkeypatch.setitem(sys.modules, "mcp.server.mcpserver", None)
     assert cli.main(["mcp"]) == 2
     assert "itulib[mcp]" in capsys.readouterr().err
+
+
+def test_tool_results_are_compact_json_with_real_characters() -> None:
+    """Indentation and \u00a7 escapes were about a fifth of a typical response, paid for in tokens."""
+    from itulib import mcp
+
+    text = mcp._guard({"cite": "Rec. ITU-T X.690 (02/2021) §11.6", "items": [{"n": "1", "t": "x"}], "next": None})
+    assert "\n" not in text and ": " not in text and ", " not in text, "no indentation or padding"
+    assert "§" in text and "\\u00a7" not in text, "non-ASCII stays as itself, not a six-character escape"
+    assert json.loads(text)["cite"].endswith("§11.6"), "still parses to the same value"
