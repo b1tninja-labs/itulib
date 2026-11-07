@@ -54,6 +54,7 @@ stays `[ ]` until that commit exists. Recording where a clause is is not retirin
 | `ia.repoint_time_leap_second` | §11.7/§11.8 defer the alphabet to X.680 | `[ ]` | **the marker is on the wrong document.** X.690 fixes the form and says nothing about a seconds value of 60 (searched, no match). Re-point at X.680 and re-ask there; RFC 5280 §4.1.2.5.1 stays with `rfclib` |
 | `ia.retire_oid_first_arc` | §8.19.1–8.19.2 | `[ ]` | clause located; the two-arc combination subclause still needs quoting, which matters most here because this is the row a remembered answer got wrong |
 | `ia.charsets_from_x680` | X.680 restricted alphabets | `[ ]` | X.680 fetched and indexed (856 clauses); no charset question posed or answered yet |
+| `ia.retrieval_blind` | `scripts/eval_blind.py`, 82 questions over X.690, X.680 and X.691 | `[part]` | written from `browse` outlines only and frozen (committed) before the first search; no ranking code tuned for it. Measured: hit@1 35/82 (43%), hit@5 64/82 (78%), hit@10 73/82 (89%), MRR 0.583 over the top 10 (X.690 57/90/97%, X.680 19/63/78%, X.691 52/80/92% at k=1/5/10). The optimistic `eval_retrieval.py` reports hit@1 83% and MRR 0.900, so that figure overstates natural-language performance. Needs the corpus, so it cannot be a CI test |
 | `ia.set_vs_setof` | §9.3/§10.3 by tag, §11.6 by encoding | `[ ]` | two rules the current prose collapses into "SET OF is sorted". Belongs beside `check_set_of` in asn1core |
 
 ## 3. Deliberate non-goals

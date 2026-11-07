@@ -83,6 +83,7 @@ series index (A-Z); only the ASN.1 recommendations are registered so far.
 python -m pip install -e ".[dev]"
 python -m pytest -q          # passes with no corpus present, by design
 python scripts/eval_retrieval.py   # retrieval quality on the fetched corpus (hit@k, MRR); not a test
+python scripts/eval_blind.py       # blind benchmark: questions frozen before any search run; not a test
 python -m ruff check . && python -m ruff format --check . && python -m mypy itulib tests
 ```
 
