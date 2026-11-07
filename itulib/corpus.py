@@ -64,7 +64,7 @@ def require(edition: Document) -> pathlib.Path:
     if not has(edition):
         raise CorpusMissing(
             f"{edition.key} is not in {home()}.\n"
-            f"    Run: python -m itulib.cli fetch {edition.key}\n"
+            f"    Run: itulib fetch {edition.key}   (or: itulib sync)\n"
             f"    The file is copyright ITU and is fetched to your machine rather than shipped with this "
             f"package, so there is no way to obtain it from the repository."
         )

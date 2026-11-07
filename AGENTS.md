@@ -8,11 +8,13 @@ reach them. The corpus is fetched by the user and never committed.
 
 ```
 python -m pip install -e ".[dev]"
-python -m itulib.cli info                  # registry: editions, digests, what is fetched — no corpus needed
-python -m itulib.cli fetch X.690           # network; writes to ITULIB_HOME, never here
-python -m itulib.cli index X.690
-python -m itulib.cli search X.690 "BOOLEAN"
-python -m itulib.cli read X.690 11.1
+itulib info                  # registry: editions, digests, what is fetched — no corpus needed
+itulib fetch X.690           # network; writes to ITULIB_HOME, never here
+itulib index X.690
+itulib sync                          # fetch + index every registered recommendation
+itulib search X.690 "BOOLEAN"
+itulib cite X.690§11.6¶2 ; itulib links X.690 10.1 ; itulib browse X
+itulib read X.690 11.1
 python -m pytest -q                        # passes with no corpus present, by design
 python -m ruff check .
 python -m ruff format --check .
@@ -38,8 +40,10 @@ ITU republishes, the fetch fails loudly rather than silently citing different te
 
 ## MCP
 
-`python -m itulib.mcp` serves six tools (`itu_info`, `itu_search`, `itu_read`, `itu_outline`, `itu_grep`,
-`itu_errata`). Register it in `~/.cline/data/settings/cline_mcp_settings.json` as a stdio server. The import is
+`itulib mcp` (needs the `mcp` extra; exits 2 with the install hint if absent) serves nine tools (`itu_info`, `itu_search`,
+`itu_read`, `itu_cite`, `itu_links`, `itu_browse`, `itu_outline`, `itu_grep`, `itu_errata`). Registered for Claude Code with
+`claude mcp add --scope user itulib -- <venv>\Scripts\itulib.exe mcp`; for Cline use a stdio entry in
+`~/.cline/data/settings/cline_mcp_settings.json`. The import is
 `from mcp.server.mcpserver import MCPServer` — **mcp 2.x renamed `FastMCP` to `MCPServer`**, every example
 online still says the old name, and the failure mode is a client reporting only that the server did not start.
 

@@ -148,3 +148,78 @@ def test_pointer_numbers_do_not_become_headings() -> None:
         "1.1 The first rule applies as in clause 1.2 and continues here. 1.2 The second rule stands alone."
     )
     assert [r.number for r in rows] == ["1.1", "1.2"]
+
+
+def test_a_title_is_not_cut_at_an_abbreviation() -> None:
+    rows = text.clauses("1.1 Rec. ITU-T T.9 defines the widget in full, and this sentence goes on. Next one here.")
+    assert rows[0].title.startswith("Rec. ITU-T T.9 defines")
+
+
+def test_dois_and_history_rows_are_not_clause_numbers() -> None:
+    rows = text.clauses(
+        "1.0 ITU-T X.1 1994-07-01 11.1002/1000/3046 history row text here.\n1.1 A real clause with a body."
+    )
+    assert [r.number for r in rows] == ["1.1"]
+
+
+def test_bare_pointers_count_only_when_the_clause_exists(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        text,
+        "pages",
+        lambda _p: [
+            "1.1 The target clause with enough body text to be indexed.\n"
+            "1.2 This is encoded as in 1.1 and also as in 9.9 which does not exist, plus arc 2.5.4 stays out."
+        ],
+    )
+    index.build(SYNTHETIC)
+    out = index.links(SYNTHETIC, "1.2")
+    assert out is not None and out.clauses == ("1.1",) and out.unresolved == ()
+    back = index.links(SYNTHETIC, "1.1")
+    assert back is not None and back.cited_by == ("1.2",)
+
+
+def test_search_relaxes_to_any_term_and_says_so(home: Path) -> None:
+    strict, relaxed = index.search_mode(SYNTHETIC, "widgets counted")
+    assert [h.number for h in strict] == ["1.1"] and not relaxed
+    loose, relaxed = index.search_mode(SYNTHETIC, "widgets zeppelin")
+    assert relaxed and {h.number for h in loose} == {"1.1", "1.2"}
+    none, relaxed = index.search_mode(SYNTHETIC, "zeppelin dirigible")
+    assert none == () and relaxed
+
+
+def test_heading_only_parents_expose_their_children(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        text,
+        "pages",
+        lambda _p: ["1.1.1 First child clause with plenty of body text.\n1.1.2 Second child clause with body text."],
+    )
+    index.build(SYNTHETIC)
+    assert index.read(SYNTHETIC, "1.1") is None
+    assert [n for n, _ in index.children(SYNTHETIC, "1.1")] == ["1.1.1", "1.1.2"]
+    assert index.children(SYNTHETIC, "7.7") == ()
+
+
+def test_slice_rows_pages_without_loss_and_always_progresses() -> None:
+    rows = tuple((f"1.{n}", "t" * 40) for n in range(1, 60))
+    got: list[str] = []
+    start: int | None = 0
+    while start is not None:
+        shown, start = index.slice_rows(rows, start, 40)
+        assert shown
+        got.extend(n for n, _ in shown)
+    assert got == [n for n, _ in rows]
+    with pytest.raises(ValueError, match="outside"):
+        index.slice_rows(rows, 999, 40)
+
+
+def test_annex_headings_are_clauses_only_at_a_sentence_boundary() -> None:
+    rows = text.clauses(
+        "1.1 A normal clause with a body of text. A.1 First annex clause with body text here. "
+        "See also D.2 and G.711 which are not headings."
+    )
+    assert [r.number for r in rows] == ["1.1", "A.1"]
+
+
+def test_annex_refs_parse_and_link() -> None:
+    assert text.parse_ref("X.690§A.1¶2") == ("X.690", "A.1", 2)
+    assert text.refs("As specified in clause A.2.3 and C.1.").clauses == ("A.2.3", "C.1")

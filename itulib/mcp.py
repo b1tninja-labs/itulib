@@ -17,14 +17,17 @@ from __future__ import annotations
 import json
 import sys
 
-from . import corpus, index, sources, text
+from . import __version__, corpus, index, sources, text
 from .errata import errata_text
 
 INSTRUCTIONS = (
-    "ITU-T recommendations (X.680, X.690) as clause-precise search and citation. The corpus is fetched by the "
-    "user and is never shipped with this package. Always cite by edition and subclause, e.g. "
-    "Rec. ITU-T X.690 (02/2021) §11.1. An empty result means no clause matched; an 'error' field means the "
-    "corpus is missing and says which command installs it."
+    "ITU-T recommendations (the ASN.1 family X.680-X.697) as clause-precise search and citation. The corpus is "
+    "fetched by the user and never shipped with this package. Refs look like X.690§11.6 or X.690§11.6¶2, where "
+    "¶n is the nth sentence of the extracted clause. Cite with the `cite` string a tool returns, e.g. "
+    "Rec. ITU-T X.690 (02/2021) §11.6. Long results are paged: pass `next.start` back as `start`. "
+    "An empty `hits` list means no clause matched; an `error` field means the corpus or index is missing and "
+    "names the command that fixes it; `relaxed` means only some search terms matched; `warning` means the "
+    "clause number is ambiguous in the extracted text, so check the PDF before relying on it."
 )
 
 
@@ -38,7 +41,7 @@ def _guard(action: object) -> str:
 def build() -> object:
     from mcp.server.mcpserver import MCPServer
 
-    app = MCPServer(name="itulib", instructions=INSTRUCTIONS)
+    app = MCPServer(name="itulib", instructions=INSTRUCTIONS, version=__version__)
 
     @app.tool(description="Registered editions, their status, digests and amendments. No corpus needed.")
     def itu_info(rec: str = "") -> str:
@@ -83,9 +86,9 @@ def build() -> object:
     def itu_search(query: str, edition: str = "X.690", limit: int = 8, max_tokens: int = 1500) -> str:
         try:
             item = sources.resolve(edition)
-            hits = index.search(item, query, limit)
+            hits, relaxed = index.search_mode(item, query, limit)
         except Exception as error:  # noqa: BLE001 - a crash tells the client nothing at all
-            return _fail(error, "python -m itulib.cli sync")
+            return _fail(error, "itulib sync")
         kept: list[dict[str, str]] = []
         used, truncated = 0, False
         for hit in hits:
@@ -102,7 +105,10 @@ def build() -> object:
                     "cite": index.citation(item, hit.number),
                 }
             )
-        return _guard({"edition": edition, "query": query, "hits": kept, "truncated": truncated})
+        result: dict[str, object] = {"edition": edition, "query": query, "hits": kept, "truncated": truncated}
+        if relaxed:
+            result["relaxed"] = "no clause contains every term; these contain SOME of them, best match first"
+        return _guard(result)
 
     @app.tool(
         description="Read a clause by ref ('X.690§11.6', '11.6', or one sentence 'X.690§11.6¶2'). Long clauses "
@@ -137,6 +143,15 @@ def build() -> object:
         except Exception as error:  # noqa: BLE001 - a crash tells the client nothing at all
             return _fail(error)
         if page is None:
+            kids = index.children(item, clause_number)
+            if kids:
+                return _guard(
+                    {
+                        "cite": index.citation(item, clause_number),
+                        "note": "heading only: this clause has no text of its own; read a subclause",
+                        "subclauses": [{"number": n, "title": t} for n, t in kids],
+                    }
+                )
             return _guard({"error": f"{item.key}: no clause §{clause_number}", "search_instead": True})
         result: dict[str, object] = {
             "cite": index.citation(item, page.number),
@@ -195,7 +210,7 @@ def build() -> object:
         description="Browse the catalog. No argument: the ITU-T series A-Z and which are registered. A series "
         "letter ('X'): its registered recommendations. A recommendation ('X.690'): its top-level clauses."
     )
-    def itu_browse(path: str = "", depth: int = 2) -> str:
+    def itu_browse(path: str = "", depth: int = 2, start: int = 0, max_tokens: int = 1500) -> str:
         try:
             if not path:
                 registered = {item.rec.split(".")[0] for item in sources.IN_FORCE}
@@ -213,18 +228,39 @@ def build() -> object:
                         if item.rec.startswith(path.upper() + ".")
                     ]
                 )
-            rows = index.top_level(sources.resolve(path), depth)
+            shown, more = index.slice_rows(index.top_level(sources.resolve(path), depth), start, max_tokens)
         except Exception as error:  # noqa: BLE001 - a crash tells the client nothing at all
-            return _fail(error, "python -m itulib.cli sync")
-        return _guard([{"number": number, "title": title} for number, title in rows])
+            return _fail(error, "itulib sync")
+        return _guard(
+            {
+                "items": [{"number": n, "title": t} for n, t in shown],
+                "next": None if more is None else {"start": more},
+            }
+        )
 
-    @app.tool(description="Clause outline of an edition: numbers and titles, no bodies.")
-    def itu_outline(edition: str = "X.690") -> str:
+    @app.tool(
+        description="Clause outline of an edition: numbers and titles, no bodies. Paged: pass `next.start` back "
+        "as `start`. `prefix` limits it to one subtree ('8.1'); `depth` caps the numbering depth (0 = all)."
+    )
+    def itu_outline(
+        edition: str = "X.690", prefix: str = "", depth: int = 0, start: int = 0, max_tokens: int = 1500
+    ) -> str:
         try:
             rows = index.outline(sources.resolve(edition))
+            if prefix:
+                rows = tuple(r for r in rows if r[0] == prefix or r[0].startswith(prefix + "."))
+            if depth:
+                rows = tuple(r for r in rows if r[0].count(".") + 1 <= depth)
+            shown, more = index.slice_rows(rows, start, max_tokens)
         except Exception as error:  # noqa: BLE001 - a crash tells the client nothing at all
             return _fail(error)
-        return _guard([{"number": number, "title": title} for number, title in rows])
+        return _guard(
+            {
+                "total": len(rows),
+                "items": [{"number": n, "title": t} for n, t in shown],
+                "next": None if more is None else {"start": more},
+            }
+        )
 
     @app.tool(
         description="Regex over clause bodies, one pass, excerpts around the match, cut to a token budget. "
@@ -248,7 +284,7 @@ def build() -> object:
                 if row["fetched"]:
                     row["text"] = errata_text(item)
                 else:
-                    row["hint"] = f"python -m itulib.cli fetch {item.key}"
+                    row["hint"] = f"itulib fetch {item.key}"
             rows.append(row)
         return _guard(
             {
@@ -258,10 +294,55 @@ def build() -> object:
             }
         )
 
+    @app.resource(
+        "itu://{rec}/{number}",
+        name="clause",
+        description="One clause as text with its citation, e.g. itu://X.690/11.6",
+        mime_type="text/plain",
+    )
+    def clause_resource(rec: str, number: str) -> str:
+        item = sources.resolve(rec)
+        page = index.page(item, number, max_tokens=4000)
+        if page is None:
+            raise ValueError(f"{item.key}: no clause §{number}")
+        return f"{index.citation(item, page.number)}\n\n{page.text}"
+
+    @app.prompt(description="Explain a clause in plain language, grounded in and cited to the fetched text.")
+    def explain_clause(ref: str) -> str:
+        return (
+            f"Explain {ref} in plain language. Call itu_read for the clause (page it if `next` is set), and "
+            "itu_links to find the clauses it depends on and read those too. Quote nothing you did not read "
+            "from a tool result, and cite every statement with the `cite` string the tools return, including "
+            "the ¶ number for sentences. If a tool returns an error or a `warning`, say so instead of filling "
+            "the gap from memory."
+        )
+
+    @app.prompt(description="Check a claim about an encoding rule against the text, with citations.")
+    def verify_claim(claim: str, rec: str = "X.690") -> str:
+        return (
+            f"Verify this claim against {rec}: {claim}\n\n"
+            "Use itu_search (and itu_grep for exact wording), read each candidate clause with itu_read, and "
+            "use view=normative to separate obligations from notes. Answer SUPPORTED, CONTRADICTED or NOT "
+            "FOUND, cite the clause and edition for each, and check itu_errata for a correction to the cited "
+            "text. NOT FOUND means no clause says it; it is not evidence the claim is true or false. Do not "
+            "answer from memory."
+        )
+
     return app
 
 
+def require_extra() -> None:
+    """Raise ImportError naming the extra if the MCP SDK is not installed. Checked before anything is served, so
+    a missing extra is one clear sentence and exit status 2, never a traceback from deep inside the SDK."""
+    try:
+        import anyio  # noqa: F401
+        from mcp.server.mcpserver import MCPServer  # noqa: F401
+    except ImportError as error:
+        raise ImportError(f"itulib mcp needs the MCP extra: pip install 'itulib[mcp]' ({error})") from error
+
+
 def main() -> None:
+    require_extra()
     import anyio
 
     anyio.run(build().run_stdio_async)  # type: ignore[attr-defined]

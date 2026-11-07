@@ -12,11 +12,14 @@ missing file and a document with nothing to say must never look the same.
 
 from __future__ import annotations
 
+__version__ = "0.1.0"
+
 from .corpus import CorpusMissing, fetch, has, home, require
 from .sources import AMENDMENTS, BY_REC, IN_FORCE, SUPERSEDED, Amendment, Edition, current, resolve
 from .text import Clause, clauses, find, pages, tidy
 
 __all__ = [
+    "__version__",
     "AMENDMENTS",
     "BY_REC",
     "IN_FORCE",

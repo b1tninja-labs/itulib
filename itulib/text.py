@@ -17,7 +17,11 @@ from dataclasses import dataclass
 
 from pypdf import PdfReader
 
-CLAUSE_NUMBER = re.compile(r"(?<![\d.])(\d{1,2}(?:\.\d+){1,5})\s")
+# Numeric (8.1.2.4) or annex (A.1, C.3.2) numbering. Annex letters stop at I: past that they collide with
+# recommendation names ("G.711", "H.323") far more often than they head a clause.
+CLAUSE_NUMBER = re.compile(r"(?<![\w.])((?:\d{1,2}|[A-I])(?:\.\d{1,2}){1,5})\s")
+# A row of the document-history table ("1.1 ITU-T X.690 (1994) Cor. 1 ...") looks like clause 1.1.
+HISTORY_ROW = re.compile(r"ITU-T\s+[A-Z]\.\d+\s*\(?\d{4}")
 LEADER = re.compile(r"\.{5,}")
 SPACE = re.compile(r"\s+")
 
@@ -42,12 +46,15 @@ def pages(path: object) -> list[str]:
     return [page.extract_text() or "" for page in reader.pages]
 
 
+_TITLE_END = re.compile(r"(?<!Rec)(?<!e\.g)(?<!i\.e)(?<!Fig)(?<!No)(?<!cf)(?<!Cor)(?<!Amd)\. ")
+
+
 def _heading(chunk: str) -> str:
     """First sentence of the chunk, capped. A heading and its first rule are not separable in extracted
     text — `11.6 Set-of components The encodings of…` runs straight on — so the title is offered as a label
     and `body` stays authoritative."""
-    cut = chunk.find(". ")
-    head = chunk if cut < 0 else chunk[:cut]
+    cut = _TITLE_END.search(chunk)
+    head = chunk if cut is None else chunk[: cut.start()]
     return head[:96].rstrip()
 
 
@@ -99,6 +106,15 @@ def _is_reference(flat: str, start: int) -> bool:
     return word in {"§", ",", "("} or word.lower() in _REFERENCE_WORDS
 
 
+def _plausible_heading(flat: str, start: int, number: str) -> bool:
+    """Annex numbers (A.1) are only headings at a sentence boundary: elsewhere they are far more likely to be
+    a reference ("Part 2, D.2)"), a recommendation name, or an enumerator."""
+    if number[0].isdigit():
+        return True
+    before = flat[:start].rstrip()
+    return not before or before[-1] in ".:;)"
+
+
 def clauses(source: list[str] | str) -> tuple[Clause, ...]:
     """Split recommendation text into clauses. Anything without a numbered heading is dropped."""
     raw = source if isinstance(source, str) else "\n".join(source)
@@ -110,13 +126,15 @@ def clauses(source: list[str] | str) -> tuple[Clause, ...]:
     marks = [
         (match.group(1), match.start(), match.end())
         for match in CLAUSE_NUMBER.finditer(flat)
-        if not _is_reference(flat, match.start())
+        if not match.group(1).endswith(".0")
+        and not _is_reference(flat, match.start())
+        and _plausible_heading(flat, match.start(), match.group(1))
     ]
     found: list[Clause] = []
     for index, (number, _start, end) in enumerate(marks):
         stop = marks[index + 1][1] if index + 1 < len(marks) else len(flat)
         body = flat[end:stop].strip()
-        if len(body) < 20:
+        if len(body) < 20 or HISTORY_ROW.match(body):
             continue
         found.append(Clause(number=number, title=_heading(body), body=body))
     return tuple(found)
@@ -126,7 +144,7 @@ def find(clauses_in: tuple[Clause, ...], number: str) -> Clause | None:
     return next((clause for clause in clauses_in if clause.number == number), None)
 
 
-def fts_query(raw: str) -> str:
+def fts_query(raw: str, *, any_term: bool = False) -> str:
     """Turn a user query into something FTS5 will accept.
 
     A raw query is not a valid MATCH expression: `set-of value order` parses as `set` NEAR `-of` (an
@@ -139,7 +157,8 @@ def fts_query(raw: str) -> str:
     tokens = [token for token in raw.split() if token]
     if not tokens:
         raise ValueError("empty query: there is nothing to search for")
-    return " ".join(f'"{token.replace(chr(34), chr(34) * 2)}"' for token in tokens)
+    joiner = " OR " if any_term else " "
+    return joiner.join(f'"{token.replace(chr(34), chr(34) * 2)}"' for token in tokens)
 
 
 # --- segmenting, normative statements and references -------------------------------------------------------
@@ -147,10 +166,10 @@ def fts_query(raw: str) -> str:
 _ABBREVIATIONS = ("Rec.", "e.g.", "i.e.", "No.", "Fig.", "Figs.", "Tab.", "etc.", "cf.", "vs.", "ITU-T.")
 _SENTENCE_BREAK = re.compile(r"(?<=[.;:])\s+(?=[A-Z(])")
 _NORMATIVE = re.compile(r"\b(shall(?: not)?|should(?: not)?|must(?: not)?|may)\b")
-_INTERNAL = re.compile(
-    r"(?:clauses?|sub-?clauses?|§)\s*(\d{1,2}(?:\.\d+)+(?:\s*(?:,|and|or|to)\s*\d{1,2}(?:\.\d+)+)*)"
-)
-_NUMBER = re.compile(r"\d{1,2}(?:\.\d+)+")
+_N = r"(?:\d{1,2}|[A-I])(?:\.\d{1,2})+"
+_INTERNAL = re.compile(rf"(?:clauses?|sub-?clauses?|§)\s*({_N}(?:\s*(?:,|and|or|to)\s*{_N})*)")
+_NUMBER_AT = re.compile(rf"(?<![\w.])({_N})(?![\d.]*\d)")
+_NUMBER = re.compile(_N)
 _REC = re.compile(r"\b(?:ITU-T\s+)?([A-Z]\.\d{1,4})(?:\s*\|\s*ISO/IEC\s+\d+(?:-\d+)?)?")
 _ISO = re.compile(r"\bISO/IEC\s+\d+(?:-\d+)?(?::\d{4})?")
 _RFC = re.compile(r"\bRFC\s*\d+")
@@ -181,6 +200,7 @@ def normative(body: str) -> tuple[tuple[int, str], ...]:
 @dataclass(frozen=True)
 class Refs:
     clauses: tuple[str, ...]
+    bare: tuple[str, ...]  # dotted numbers after "see"/"in"/"of"...: pointers if, and only if, the clause exists
     recommendations: tuple[str, ...]
     standards: tuple[str, ...]
 
@@ -189,20 +209,27 @@ def refs(body: str) -> Refs:
     """What a clause points at: other clauses of the same document, other recommendations, ISO/IEC and RFCs.
 
     Only references introduced by a word such as "clause" or the section sign count as clause references;
-    a bare dotted number is more often a version, an arc or an octet range than a pointer.
+    a bare dotted number is more often a version, an arc or an octet range than a pointer. Numbers after a
+    weaker introducer ("see 8.1.3", "as in 8.1.3.2") are returned separately as `bare`: callers should keep
+    one only if that clause exists, because nothing else distinguishes it from an arc or a version.
     """
     seen: dict[str, None] = {}
     for match in _INTERNAL.finditer(body):
         for number in _NUMBER.findall(match.group(1)):
             seen.setdefault(number)
+    bare = dict.fromkeys(
+        m.group(1) for m in _NUMBER_AT.finditer(body) if m.group(1) not in seen and _is_reference(body, m.start())
+    )
     recs = dict.fromkeys(m.group(1) for m in _REC.finditer(body))
     standards = dict.fromkeys([m.group(0) for m in _ISO.finditer(body)] + [m.group(0) for m in _RFC.finditer(body)])
-    return Refs(tuple(seen), tuple(recs), tuple(standards))
+    return Refs(tuple(seen), tuple(bare), tuple(recs), tuple(standards))
 
 
 def parse_ref(raw: str) -> tuple[str | None, str, int | None]:
     """`X.690§11.6¶2`, `X.690 11.6`, `§11.6`, `11.6¶2` -> (rec or None, clause number, ¶ or None)."""
-    match = re.fullmatch(r"\s*(?:([A-Z]\.\d+(?:#[\d-]+)?)\s*)?§?\s*(\d{1,2}(?:\.\d+)+)(?:\s*¶\s*(\d+))?\s*", raw)
+    match = re.fullmatch(
+        r"\s*(?:([A-Z]\.\d+(?:#[\d-]+)?)\s*)?§?\s*((?:\d{1,2}|[A-I])(?:\.\d+)+)(?:\s*¶\s*(\d+))?\s*", raw
+    )
     if not match:
         raise ValueError(f"{raw!r} is not a clause reference; expected e.g. X.690§11.6 or 11.6¶2")
     return match.group(1), match.group(2), int(match.group(3)) if match.group(3) else None

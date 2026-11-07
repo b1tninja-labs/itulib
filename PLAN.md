@@ -38,7 +38,7 @@ reproduced by any means without ITU's prior written permission. Paraphrased here
 That is the one respect in which this cannot be a clone of `rfclibrary`. The RFC series is freely
 redistributable, so `rfclibrary` vendors `data/` and a clone is self-contained. ITU text may not be vendored:
 
-- the corpus is **fetched by the user** (`python -m itulib.cli fetch`) into `ITULIB_HOME` (default `~/.itulib`),
+- the corpus is **fetched by the user** (`itulib fetch`) into `ITULIB_HOME` (default `~/.itulib`),
   never into the checkout;
 - `corpus/` is git-ignored; `tests/test_license.py` forbids PDF/DOC/ZIP blobs, forbids five verbatim clause
   sentences anywhere in the tree, and forbids any test from requiring the corpus, because a suite that skips

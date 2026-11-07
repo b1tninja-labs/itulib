@@ -68,8 +68,8 @@ def _open(edition: Edition) -> sqlite3.Connection:
     db = _db_path(edition)
     if not db.is_file():
         raise corpus.CorpusMissing(
-            f"{edition.key}: no index. Run: python -m itulib.cli fetch {edition.key} && "
-            f"python -m itulib.cli index {edition.key}"
+            f"{edition.key}: no index. Run: itulib fetch {edition.key} && itulib index {edition.key} "
+            f"(or: itulib sync)"
         )
     connection = sqlite3.connect(db)
     meta = dict(connection.execute("SELECT key, value FROM meta"))
@@ -77,19 +77,27 @@ def _open(edition: Edition) -> sqlite3.Connection:
     if meta.get("pdf_sha256") != hashlib.sha256(pdf.read_bytes()).hexdigest():
         connection.close()
         raise RuntimeError(
-            f"{edition.key}: the corpus changed since the index was built. "
-            f"Run: python -m itulib.cli index {edition.key}"
+            f"{edition.key}: the corpus changed since the index was built. Run: itulib index {edition.key}"
         )
     return connection
 
 
 def search(edition: Edition, query: str, limit: int = 8) -> tuple[Hit, ...]:
+    return search_mode(edition, query, limit)[0]
+
+
+def search_mode(edition: Edition, query: str, limit: int = 8) -> tuple[tuple[Hit, ...], bool]:
+    """(hits, relaxed). Every term must match first; if that finds nothing the terms are OR-ed, and `relaxed`
+    says so, because "some of your words matched" is a weaker answer than "all of them did" and the caller
+    should be able to tell which one it is holding."""
+    hits = _match(edition, text.fts_query(query), limit)
+    if hits or len(query.split()) < 2:
+        return hits, False
+    return _match(edition, text.fts_query(query, any_term=True), limit), True
+
+
+def _match(edition: Edition, prepared: str, limit: int) -> tuple[Hit, ...]:
     connection = _open(edition)
-    try:
-        prepared = text.fts_query(query)
-    except ValueError:
-        connection.close()
-        raise
     try:
         cursor = connection.execute(
             "SELECT number, title, snippet(clause, 2, '', '', ' … ', 24), bm25(clause) FROM clause "
@@ -213,12 +221,12 @@ def links(edition: Edition, number: str) -> Links | None:
     if body is None:
         return None
     found = text.refs(body)
-    back = tuple(n for n, b in rows if n != number and number in text.refs(b).clauses)
+    back = tuple(n for n, b in rows if n != number and _points_at(b, number))
     return Links(
         number=number,
-        clauses=tuple(c for c in found.clauses if c in known),
+        clauses=tuple(c for c in (*found.clauses, *found.bare) if c in known and c != number),
         unresolved=tuple(c for c in found.clauses if c not in known),
-        recommendations=found.recommendations,
+        recommendations=tuple(r for r in found.recommendations if r != edition.rec),
         standards=found.standards,
         cited_by=back,
     )
@@ -253,6 +261,37 @@ def grep(
         used += cost
         hits.append({"number": number, "excerpt": excerpt})
     return hits, False
+
+
+def _points_at(body: str, number: str) -> bool:
+    found = text.refs(body)
+    return number in found.clauses or number in found.bare
+
+
+def slice_rows(
+    rows: tuple[tuple[str, str], ...], start: int, max_tokens: int
+) -> tuple[tuple[tuple[str, str], ...], int | None]:
+    """(rows[start:...], next start or None), cut to a token budget. Always returns at least one row."""
+    if not 0 <= start <= len(rows):
+        raise ValueError(f"start={start} is outside 0..{len(rows)}")
+    budget, used, end = max(max_tokens, 1) * CHARS_PER_TOKEN, 0, start
+    while end < len(rows):
+        cost = len(rows[end][0]) + len(rows[end][1]) + 12
+        if end > start and used + cost > budget:
+            break
+        used += cost
+        end += 1
+    return rows[start:end], (end if end < len(rows) else None)
+
+
+def children(edition: Edition, number: str) -> tuple[tuple[str, str], ...]:
+    """The nearest descendants of a clause that has no body of its own. Heading-only clauses ("8.1.2 Identifier
+    octets") are not indexed, so `read` would otherwise say "no clause" about a clause that plainly exists."""
+    below = [(n, t) for n, t in outline(edition) if n.startswith(number + ".")]
+    if not below:
+        return ()
+    shallowest = min(n.count(".") for n, _ in below)
+    return tuple(row for row in below if row[0].count(".") == shallowest)
 
 
 def top_level(edition: Edition, depth: int = 2) -> tuple[tuple[str, str], ...]:

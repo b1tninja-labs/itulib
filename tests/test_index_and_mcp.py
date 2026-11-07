@@ -118,3 +118,14 @@ def _payload(result: object) -> dict[str, object]:
     loaded = json.loads(content.text)
     assert isinstance(loaded, dict)
     return loaded
+
+
+def test_mcp_without_the_extra_exits_2_with_the_install_hint(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The first run of a core-only install crashed with a traceback from inside the SDK import, not this."""
+    from itulib import cli
+
+    monkeypatch.setitem(sys.modules, "mcp.server.mcpserver", None)
+    assert cli.main(["mcp"]) == 2
+    assert "itulib[mcp]" in capsys.readouterr().err

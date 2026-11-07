@@ -1,15 +1,32 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.26"]
 build-backend = "hatchling.build"
 
 [project]
 name = "itulib"
-version = "0.0.0"
-description = "ITU-T recommendations as a local, citation-precise library and MCP server: X.680/X.690 first. The corpus is fetched on your machine and never shipped, because the text is copyright ITU."
-requires-python = ">=3.12"
+dynamic = ["version"]
+description = "ITU-T recommendations (ASN.1: X.680-X.697) as a local library and MCP server: clause-precise search, paging, citations and cross-references. You fetch the text; it is never shipped."
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.12"
 authors = [{ name = "Justin Capella", email = "justincapella@gmail.com" }]
+keywords = ["itu-t", "asn.1", "x.680", "x.690", "ber", "der", "per", "mcp", "model-context-protocol", "standards", "citation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Text Processing :: Indexing",
+    "Typing :: Typed",
+]
 dependencies = [
     # pypdf is the extractor that was actually verified against the downloaded editions; nothing else
     # is guessed at here.
@@ -17,13 +34,40 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["mcp>=2.3", "mypy>=1.20", "pytest>=8", "ruff>=0.15"]
+# `itulib mcp`: the MCP SDK and its web stack. The library and CLI work without it, and `itulib mcp` without
+# it exits 2 saying how to install it.
+mcp = ["mcp>=2.3"]
+all = ["itulib[mcp]"]
+dev = ["itulib[mcp]", "mypy>=1.20", "pytest>=8", "ruff>=0.15", "build>=1.2", "twine>=5"]
+
+# No [project.urls] yet: this repository has no public remote (ROADMAP.md section 4). Add Homepage, Source and
+# Issues when one exists, before the first upload, rather than publishing a placeholder.
 
 [project.scripts]
 itulib = "itulib.cli:main"
 
+[tool.hatch.version]
+path = "itulib/__init__.py"
+
 [tool.hatch.build.targets.wheel]
 packages = ["itulib"]
+exclude = ["**/__pycache__"]
+
+[tool.hatch.build.targets.sdist]
+# What a source build and its test run need, and nothing else. PLAN.md and AGENTS.md describe the local
+# workspace (sibling projects) and are not part of the package. .gitignore is included because
+# tests/test_license.py asserts that the corpus directory is ignored.
+include = [
+    "/itulib/",
+    "/tests/",
+    "/conftest.py",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/LICENSE",
+    "/NOTICE",
+    "/.gitignore",
+]
+exclude = ["**/__pycache__"]
 
 [tool.ruff]
 line-length = 118
