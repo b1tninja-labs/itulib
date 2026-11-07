@@ -192,10 +192,11 @@ SUPERSEDED: tuple[Edition, ...] = (
         edition="08/2015",
         title="ASN.1 encoding rules: BER, CER and DER",
         status="superseded",
-        artifact="T-REC-X.690-201508-I!!PDF-E",
-        sha256="",
-        octets=0,
-        note="Digest not captured; fetch verifies size only until a digest is recorded.",
+        artifact="T-REC-X.690-201508-S!!PDF-E",
+        sha256="5b61e6a08ee78b7eb3cee4215916647c5f30cb6e36b59348a25d61fa988cb529",
+        octets=935_416,
+        note="Superseded editions are listed under a -S id, not -I: the -I form returns 'Document Not Found'. "
+        "Digest measured 2026-11-07; 38 pages.",
     ),
     Edition(
         key="X.690#2008-11",
@@ -203,11 +204,12 @@ SUPERSEDED: tuple[Edition, ...] = (
         edition="11/2008",
         title="ASN.1 encoding rules: BER, CER and DER",
         status="superseded",
-        artifact="T-REC-X.690-200811-I!!PDF-E",
-        sha256="",
-        octets=0,
-        note="Digest not captured; fetch verifies size only until a digest is recorded. The edition most "
-        "legacy Python codecs were written against. Corrigenda 1 (10/11) and 2 (03/14).",
+        artifact="T-REC-X.690-200811-S!!PDF-E",
+        sha256="56b3a3f95ab19bbf521f3242756191a3bbf7ee0fb352290cee301c542b3b3a86",
+        octets=203_955,
+        note="The edition most legacy Python codecs were written against. This is the base text: Corrigenda 1 "
+        "(10/11) and 2 (03/14) are separate documents and are not applied to it. Digest measured 2026-11-07; "
+        "38 pages.",
     ),
 )
 

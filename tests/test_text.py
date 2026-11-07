@@ -74,3 +74,27 @@ def test_bodyless_headings_are_not_indexed() -> None:
     """A heading whose body is a page number is a contents entry, and indexing it answers nothing."""
     clauses = text.clauses("9.1 Some heading 42\n9.2 Another heading with a body long enough to survive here")
     assert [clause.number for clause in clauses] == ["9.2"]
+
+
+def test_tidy_repairs_the_joint_designation_part_number() -> None:
+    assert text.tidy("ISO/IEC 8824 -1 and ISO/IEC 8825 -4") == "ISO/IEC 8824-1 and ISO/IEC 8825-4"
+    assert text.tidy("a value of -1 is allowed") == "a value of -1 is allowed"
+
+
+def test_running_headers_and_footers_are_stripped_but_repeated_words_are_not() -> None:
+    body = ["A clause that runs on", "and on across the page break.", "EXAMPLE"]
+    pages = [
+        f"ISO/IEC 1-{n}:2021 (E) {n}\n" + "\n".join(body) + f"\nRec. ITU-T X.1 (02/2021) {n}" for n in range(1, 9)
+    ]
+    cleaned = text.strip_running_lines(pages)
+    assert all("ISO/IEC" not in page and "Rec. ITU-T" not in page for page in cleaned)
+    assert all("EXAMPLE" in page for page in cleaned), "a repeated word with no number is content, not a footer"
+    assert text.strip_running_lines(["a 1", "a 2"]) == ["a 1", "a 2"], "too few pages to tell"
+
+
+def test_repeated_numbered_headings_are_not_running_text() -> None:
+    """Found on X.693: '10.1 General', '18.1 General' ... mask to one string, repeat 22 times, and were deleted."""
+    pages = [f"{n}.1 General\nbody text of page {n}\nRec. ITU-T X.1 (02/2021) {n}" for n in range(1, 9)]
+    cleaned = text.strip_running_lines(pages)
+    assert all(f"{n}.1 General" in page for n, page in enumerate(cleaned, start=1))
+    assert not any("Rec. ITU-T" in page for page in cleaned)

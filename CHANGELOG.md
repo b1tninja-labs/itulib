@@ -12,14 +12,22 @@ First release intended for PyPI.
   a PDF or a verbatim clause sentence appears anywhere in the tree.
 - **CLI.** `info`, `fetch`, `sync`, `index`, `search`, `read`, `cite`, `links`, `grep`, `browse`, `errata`,
   `mcp`.
-- **MCP server (needs `itulib[mcp]`).** Nine tools (`itu_search`, `itu_read`, `itu_cite`, `itu_links`,
-  `itu_browse`, `itu_outline`, `itu_grep`, `itu_errata`, `itu_info`), the `itu://{rec}/{number}` resource
+- **MCP server (needs `itulib[mcp]`).** Ten tools (`itu_search`, `itu_read`, `itu_cite`, `itu_links`,
+  `itu_browse`, `itu_outline`, `itu_grep`, `itu_errata`, `itu_compare`, `itu_info`), the `itu://{rec}/{number}` resource
   template, and the `explain_clause` and `verify_claim` prompts. Results are token-budgeted and paged, and say
   whether a list was truncated.
 - **References.** One grammar (`X.690§11.6¶2`) accepted by every tool; `¶n` is the nth sentence of the extracted
   clause. Cross-references and back-references between clauses; a `normative` view of shall/should/may
   sentences.
-- **Search.** Every term must match; if nothing does, terms are OR-ed and the result is marked `relaxed`.
+- **Search.** Clauses matching every term come first; partial matches fill the list and are marked.
+- **Structure from the document.** Clauses come from each PDF's own bookmarks (contents lines as the fallback):
+  exact heading titles, heading-only parents indexed, annexes included; deeper numbered paragraphs are
+  accepted only as strict successors. 99.8% of the 1,261 listed headings are located; duplicate clause numbers
+  are 0 except X.692 (11). Running page headers and footers are stripped from clause text.
+- **Editions.** X.690 (11/2008) and (08/2015) are fetchable with `itulib sync --all`; `itulib compare` and `itu_compare` show what changed in a clause by sentence.
+- **Ranking.** Real headings are indexed in their own column and weighted above body text; filler words are
+  dropped from queries; partial matches top up a short result list and are marked `some terms`. The index
+  carries a schema version and an older one is refused with the command to rebuild it.
 - **Segmentation fixes.** Pointers such as "see 8.1.2", DOI fragments, history-table rows and `x.0` numbers no
   longer become clauses (X.690: 22 duplicate clause numbers down to 3); lettered annex clauses (A.1, C.3.2) are
   indexed; titles are not cut at "Rec.".

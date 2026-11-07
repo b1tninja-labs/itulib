@@ -8,8 +8,10 @@ of a search result.
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import pathlib
+import re
 import sqlite3
 from dataclasses import dataclass
 
@@ -23,6 +25,7 @@ class Hit:
     title: str
     excerpt: str
     score: float
+    all_terms: bool = True  # False: matched only some of the query's terms
 
 
 def _db_path(edition: Edition) -> pathlib.Path:
@@ -33,7 +36,8 @@ def build(edition: Edition) -> int:
     """(Re)build the index for one edition. Returns the clause count."""
     pdf = corpus.require(edition)
     digest = hashlib.sha256(pdf.read_bytes()).hexdigest()
-    rows = text.clauses(text.pages(pdf))
+    extracted = text.pages(pdf)
+    rows = text.clauses(extracted, text.headings(pdf, extracted))
     if not rows:
         raise RuntimeError(
             f"{edition.key}: extracted 0 clauses. The corpus exists but nothing parsed, which is a failure "
@@ -47,16 +51,16 @@ def build(edition: Edition) -> int:
         connection.executescript(
             """
             CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-            CREATE VIRTUAL TABLE clause USING fts5(number, title, body, tokenize='porter unicode61');
+            CREATE VIRTUAL TABLE clause USING fts5(number, title UNINDEXED, head, body, tokenize='porter unicode61');
             """
         )
         connection.executemany(
-            "INSERT INTO clause (number, title, body) VALUES (?, ?, ?)",
-            [(row.number, row.title, row.body) for row in rows],
+            "INSERT INTO clause (number, title, head, body) VALUES (?, ?, ?, ?)",
+            [(row.number, row.title, row.title if row.heading else "", row.body) for row in rows],
         )
         connection.executemany(
             "INSERT INTO meta (key, value) VALUES (?, ?)",
-            [("edition", edition.key), ("pdf_sha256", digest), ("clauses", str(len(rows)))],
+            [("edition", edition.key), ("pdf_sha256", digest), ("clauses", str(len(rows))), ("schema", SCHEMA)],
         )
         connection.commit()
     finally:
@@ -73,6 +77,12 @@ def _open(edition: Edition) -> sqlite3.Connection:
         )
     connection = sqlite3.connect(db)
     meta = dict(connection.execute("SELECT key, value FROM meta"))
+    if meta.get("schema") != SCHEMA:
+        connection.close()
+        raise RuntimeError(
+            f"{edition.key}: the index was built by an older itulib. "
+            f"Run: itulib index {edition.key} (or: itulib sync)"
+        )
     pdf = corpus.require(edition)
     if meta.get("pdf_sha256") != hashlib.sha256(pdf.read_bytes()).hexdigest():
         connection.close()
@@ -90,18 +100,26 @@ def search_mode(edition: Edition, query: str, limit: int = 8) -> tuple[tuple[Hit
     """(hits, relaxed). Every term must match first; if that finds nothing the terms are OR-ed, and `relaxed`
     says so, because "some of your words matched" is a weaker answer than "all of them did" and the caller
     should be able to tell which one it is holding."""
-    hits = _match(edition, text.fts_query(query), limit)
-    if hits or len(query.split()) < 2:
-        return hits, False
-    return _match(edition, text.fts_query(query, any_term=True), limit), True
+    strict = _match(edition, text.fts_query(query), limit)
+    if len(strict) >= limit or len(query.split()) < 2:
+        return strict, False
+    seen = {hit.number for hit in strict}
+    extra = tuple(
+        dataclasses.replace(hit, all_terms=False)
+        for hit in _match(edition, text.fts_query(query, any_term=True), limit + len(strict))
+        if hit.number not in seen
+    )
+    merged = (*strict, *extra)[:limit]
+    return merged, len(merged) > len(strict)
 
 
 def _match(edition: Edition, prepared: str, limit: int) -> tuple[Hit, ...]:
     connection = _open(edition)
     try:
+        # BM25_WEIGHTS is a module constant, never user input.
         cursor = connection.execute(
-            "SELECT number, title, snippet(clause, 2, '', '', ' … ', 24), bm25(clause) FROM clause "
-            "WHERE clause MATCH ? ORDER BY bm25(clause) LIMIT ?",
+            f"SELECT number, title, snippet(clause, 3, '', '', ' … ', 24), bm25(clause, {BM25_WEIGHTS}) FROM clause "  # noqa: S608
+            f"WHERE clause MATCH ? ORDER BY bm25(clause, {BM25_WEIGHTS}) LIMIT ?",
             (prepared, limit),
         )
         return tuple(Hit(number=row[0], title=row[1], excerpt=row[2], score=row[3]) for row in cursor)
@@ -131,6 +149,10 @@ def outline(edition: Edition) -> tuple[tuple[str, str], ...]:
 # --- paging, citation, references ----------------------------------------------------------------------------
 
 CHARS_PER_TOKEN = 4
+# bm25 column weights for (number, title, body). Titles are the document's own headings, so a title match is a much
+# stronger signal than the same word somewhere in a body.
+BM25_WEIGHTS = "2.0, 0.0, 15.0, 1.0"  # number, title (display only), head, body
+SCHEMA = "2"
 
 
 @dataclass(frozen=True)
@@ -162,6 +184,8 @@ def page(edition: Edition, number: str, *, start: int = 1, max_tokens: int = 200
     clause = read(edition, number)
     if clause is None:
         return None
+    if not clause.body:
+        return Page(clause.number, clause.title, 1, 0, 0, "", None)
     units = text.sentences(clause.body)
     if not 1 <= start <= max(len(units), 1):
         raise ValueError(f"§{number} has {len(units)} sentences; start={start} is outside 1..{len(units)}")
@@ -282,6 +306,59 @@ def slice_rows(
         used += cost
         end += 1
     return rows[start:end], (end if end < len(rows) else None)
+
+
+@dataclass(frozen=True)
+class Comparison:
+    number: str
+    in_a: bool
+    in_b: bool
+    same: bool
+    removed: tuple[tuple[int, str], ...]  # (¶ in edition a, sentence) present only in a
+    added: tuple[tuple[int, str], ...]  # (¶ in edition b, sentence) present only in b
+
+
+def _sentence_key(sentence: str) -> str:
+    """What two sentences must share to count as the same across editions.
+
+    The extractor splits words differently in different editions ("a ppear"), drops mathematical symbols from some
+    ("M ≠ M'" loses its sign) and the editions cite each other in a different order ("ITU-T Rec. X.680" became
+    "Rec. ITU-T X.680"). So matching ignores case, whitespace, punctuation and symbols. The cost is stated in the
+    docstring of `compare`: a change that consists only of a symbol or punctuation mark is invisible.
+    """
+    return re.sub(r"[\W_]+", "", sentence.replace("ITU-T Rec.", "Rec. ITU-T")).casefold()
+
+
+def compare(a: Edition, b: Edition, number: str) -> Comparison:
+    """What changed in clause `number` between two editions, by sentence.
+
+    Numbering can differ between editions, so a clause that exists in only one is reported as such rather than
+    as a deletion: the rule may simply have moved. Matching is by sentence, so a reworded sentence appears as one
+    removed and one added. Matching ignores punctuation and symbols (see `_sentence_key`), so a change consisting
+    only of a symbol, such as a sign or a comparison operator, is NOT reported: check the PDF when that matters.
+    """
+    import difflib
+
+    clause_a, clause_b = read(a, number), read(b, number)
+    sa = text.sentences(clause_a.body) if clause_a and clause_a.body else ()
+    sb = text.sentences(clause_b.body) if clause_b and clause_b.body else ()
+    keys_a, keys_b = [_sentence_key(s) for s in sa], [_sentence_key(s) for s in sb]
+    matcher = difflib.SequenceMatcher(a=keys_a, b=keys_b, autojunk=False)
+    removed: list[tuple[int, str]] = []
+    added: list[tuple[int, str]] = []
+    for op, a0, a1, b0, b1 in matcher.get_opcodes():
+        if op in {"delete", "replace"}:
+            removed += [(n + 1, sa[n]) for n in range(a0, a1)]
+        if op in {"insert", "replace"}:
+            added += [(n + 1, sb[n]) for n in range(b0, b1)]
+    return Comparison(
+        number,
+        clause_a is not None,
+        clause_b is not None,
+        clause_a is not None and clause_b is not None and not removed and not added,
+        tuple(removed),
+        tuple(added),
+    )
 
 
 def children(edition: Edition, number: str) -> tuple[tuple[str, str], ...]:

@@ -178,13 +178,19 @@ def test_bare_pointers_count_only_when_the_clause_exists(home: Path, monkeypatch
     assert back is not None and back.cited_by == ("1.2",)
 
 
-def test_search_relaxes_to_any_term_and_says_so(home: Path) -> None:
-    strict, relaxed = index.search_mode(SYNTHETIC, "widgets counted")
-    assert [h.number for h in strict] == ["1.1"] and not relaxed
+def test_search_tops_up_with_partial_matches_and_marks_them(home: Path) -> None:
+    hits, relaxed = index.search_mode(SYNTHETIC, "widgets counted")
+    assert relaxed and hits[0].number == "1.1" and hits[0].all_terms
+    assert [h.number for h in hits if not h.all_terms] == ["1.2"], "1.2 has only one of the two terms"
     loose, relaxed = index.search_mode(SYNTHETIC, "widgets zeppelin")
-    assert relaxed and {h.number for h in loose} == {"1.1", "1.2"}
+    assert relaxed and loose and not any(h.all_terms for h in loose)
     none, relaxed = index.search_mode(SYNTHETIC, "zeppelin dirigible")
-    assert none == () and relaxed
+    assert none == () and not relaxed
+
+
+def test_filler_words_are_not_required_terms() -> None:
+    assert text.fts_query("encoding for a value of a CHOICE type") == '"encoding" "value" "CHOICE" "type"'
+    assert text.fts_query("of the") == '"of" "the"', "a query made only of filler is still a query"
 
 
 def test_heading_only_parents_expose_their_children(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -223,3 +229,151 @@ def test_annex_headings_are_clauses_only_at_a_sentence_boundary() -> None:
 def test_annex_refs_parse_and_link() -> None:
     assert text.parse_ref("X.690§A.1¶2") == ("X.690", "A.1", 2)
     assert text.refs("As specified in clause A.2.3 and C.1.").clauses == ("A.2.3", "C.1")
+
+
+HEADED = (
+    "8 Basic rules\n"
+    "8.1 General rules This first rule applies to everything here and carries on for a while.\n"
+    "8.1.1 Structure The structure rule says something specific about structure, see 8.1 for more.\n"
+    "8.1.2 Lengths\n"
+    "8.1.2.1 The length rule is stated in this numbered paragraph with enough words to index.\n"
+    "8.1.2.2 The second paragraph carries on with other words, and mentions 8.1.2.1 only by pointer.\n"
+    "8.2 Booleans Booleans use one octet and the rule is a short but real sentence of text.\n"
+    "Annex A Examples (This annex is informative.) Example text follows here with some words.\n"
+    "A.1 First example The first example paragraph holds some more invented words of text.\n"
+)
+LISTED = [
+    ("8", "Basic rules"),
+    ("8.1", "General rules"),
+    ("8.1.1", "Structure"),
+    ("8.1.2", "Lengths"),
+    ("8.2", "Booleans"),
+    ("A", "Examples"),
+    ("A.1", "First example"),
+]
+
+
+def test_listed_headings_give_exact_titles_and_keep_heading_only_parents() -> None:
+    rows = {c.number: c for c in text.clauses(HEADED, LISTED)}
+    assert rows["8"].title == "Basic rules" and rows["8"].body == ""
+    assert rows["8.1.2"].title == "Lengths" and rows["8.1.2"].body == ""
+    assert rows["8.1"].body.startswith("This first rule applies")
+    assert "A" in rows and rows["A"].title == "Examples"
+
+
+def test_numbered_paragraphs_are_accepted_only_as_successors() -> None:
+    nums = [c.number for c in text.clauses(HEADED, LISTED)]
+    assert "8.1.2.1" in nums and "8.1.2.2" in nums
+    assert nums.count("8.1") == 1, "the pointer 'see 8.1' must not create a second 8.1"
+    assert nums.count("8.1.2.1") == 1, "the pointer to 8.1.2.1 must not create a second one"
+
+
+def test_a_pointer_that_matches_a_listed_number_is_not_its_heading() -> None:
+    text_with_pointer = "See 8.1 General rules for details. 8.1 General rules The real heading text goes here for it."
+    rows = text.clauses(text_with_pointer, [("8.1", "General rules")])
+    assert [c.number for c in rows] == ["8.1"]
+    assert rows[0].body.startswith("The real heading text")
+
+
+def test_clauses_without_a_listing_fall_back_to_the_heuristic() -> None:
+    assert [c.number for c in text.clauses("1.1 A clause with enough body text to be kept as one.")] == ["1.1"]
+
+
+def test_headings_fall_back_to_contents_lines_when_there_are_no_bookmarks(tmp_path: Path) -> None:
+    fake = tmp_path / "x.pdf"
+    fake.write_bytes(b"not a pdf")
+    contents = ["8.1 General rules ........ 12", "8.1.2 Lengths ........ 13", "Annex A line without leaders"]
+    assert text.headings(fake, contents) == [("8.1", "General rules"), ("8.1.2", "Lengths")]
+
+
+def test_parse_ref_accepts_bare_top_level_numbers() -> None:
+    assert text.parse_ref("X.690 8") == ("X.690", "8", None)
+    assert text.parse_ref("X.690§A") == ("X.690", "A", None)
+
+
+def test_a_real_heading_outranks_a_body_that_merely_repeats_the_word(
+    home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        text,
+        "pages",
+        lambda _p: [
+            "2 Gadgets Short body about nothing much at all in here.\n"
+            "3 Other things Gadgets gadgets gadgets gadgets gadgets are mentioned in this body again and again."
+        ],
+    )
+    monkeypatch.setattr(text, "headings", lambda _p, _t=None: [("2", "Gadgets"), ("3", "Other things")])
+    index.build(SYNTHETIC)
+    hits, _ = index.search_mode(SYNTHETIC, "gadgets")
+    assert hits[0].number == "2", "the clause whose HEADING is the word must come first"
+
+
+def test_an_index_from_an_older_schema_is_refused_with_the_remedy(home: Path) -> None:
+    import sqlite3
+
+    db = index._db_path(SYNTHETIC)
+    with sqlite3.connect(db) as connection:
+        connection.execute("UPDATE meta SET value = '1' WHERE key = 'schema'")
+    with pytest.raises(RuntimeError, match="older itulib"):
+        index.search(SYNTHETIC, "widgets")
+
+
+OTHER = Edition(
+    key="T.0#1111-11",
+    rec="T.0",
+    edition="11/1111",
+    title="Synthetic, later",
+    status="test",
+    artifact="none",
+    sha256="",
+    octets=0,
+)
+
+
+def _build_two(monkeypatch: pytest.MonkeyPatch, old_pages: list[str], new_pages: list[str]) -> None:
+    for edition, pages in ((SYNTHETIC, old_pages), (OTHER, new_pages)):
+        monkeypatch.setattr(text, "pages", lambda _p, pages=pages: pages)
+        pdf = corpus.pdf_path(edition)
+        pdf.parent.mkdir(parents=True, exist_ok=True)
+        pdf.write_bytes(edition.key.encode())
+        index.build(edition)
+
+
+def test_compare_ignores_extraction_noise_and_reports_real_changes(
+    home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old = [
+        "1.1 The encoding shall appear in a ppear order. Each unit is counted.\n"
+        "1.2 All of the gadgets are painted red.\n"
+    ]
+    new = [
+        "1.1 The encoding shall appear in appear order. Each unit is counted.\n"
+        "1.2 All of the gadgets are painted blue.\n"
+    ]
+    _build_two(monkeypatch, old, new)
+    same = index.compare(SYNTHETIC, OTHER, "1.1")
+    assert same.same and same.in_a and same.in_b, "a split word and nothing else is not a change"
+    changed = index.compare(SYNTHETIC, OTHER, "1.2")
+    assert not changed.same
+    assert [s for _, s in changed.removed] == ["All of the gadgets are painted red."]
+    assert [s for _, s in changed.added] == ["All of the gadgets are painted blue."]
+
+
+def test_compare_says_when_a_clause_exists_in_only_one_edition(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _build_two(
+        monkeypatch,
+        ["1.1 A clause that exists in the old edition only, with words."],
+        ["1.2 A clause that exists in the new edition only, with words."],
+    )
+    result = index.compare(SYNTHETIC, OTHER, "1.1")
+    assert result.in_a and not result.in_b and not result.same
+
+
+def test_compare_of_a_clause_in_neither_edition_is_not_reported_as_unchanged(
+    home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _build_two(
+        monkeypatch, ["1.1 Some clause with enough words in it."], ["1.1 Some clause with enough words in it."]
+    )
+    result = index.compare(SYNTHETIC, OTHER, "9.9")
+    assert not result.in_a and not result.in_b and not result.same

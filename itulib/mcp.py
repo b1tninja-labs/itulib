@@ -103,11 +103,14 @@ def build() -> object:
                     "title": hit.title,
                     "excerpt": hit.excerpt,
                     "cite": index.citation(item, hit.number),
+                    "match": "all terms" if hit.all_terms else "some terms",
                 }
             )
         result: dict[str, object] = {"edition": edition, "query": query, "hits": kept, "truncated": truncated}
         if relaxed:
-            result["relaxed"] = "no clause contains every term; these contain SOME of them, best match first"
+            result["relaxed"] = (
+                "fewer clauses contain every term than requested; hits marked 'some terms' match part of the query"
+            )
         return _guard(result)
 
     @app.tool(
@@ -142,7 +145,7 @@ def build() -> object:
             page = index.page(item, clause_number, start=start, max_tokens=max_tokens)
         except Exception as error:  # noqa: BLE001 - a crash tells the client nothing at all
             return _fail(error)
-        if page is None:
+        if page is None or page.total == 0:
             kids = index.children(item, clause_number)
             if kids:
                 return _guard(
@@ -152,7 +155,15 @@ def build() -> object:
                         "subclauses": [{"number": n, "title": t} for n, t in kids],
                     }
                 )
-            return _guard({"error": f"{item.key}: no clause §{clause_number}", "search_instead": True})
+            if page is None:
+                return _guard({"error": f"{item.key}: no clause §{clause_number}", "search_instead": True})
+            return _guard(
+                {
+                    "cite": index.citation(item, clause_number),
+                    "title": page.title,
+                    "note": "heading with no text of its own and no indexed subclauses",
+                }
+            )
         result: dict[str, object] = {
             "cite": index.citation(item, page.number),
             "number": page.number,
@@ -237,6 +248,39 @@ def build() -> object:
                 "next": None if more is None else {"start": more},
             }
         )
+
+    @app.tool(
+        description="Compare one clause between two editions, by sentence: what was removed and what was added. "
+        "Numbering can differ between editions, so a clause missing from one edition may have moved, not gone."
+    )
+    def itu_compare(
+        number: str, edition_a: str = "X.690#2008-11", edition_b: str = "X.690#2021-02", max_tokens: int = 2000
+    ) -> str:
+        try:
+            first, second = sources.resolve(edition_a), sources.resolve(edition_b)
+            _rec, clause_number, _para = text.parse_ref(number)
+            result = index.compare(first, second, clause_number)
+        except Exception as error:  # noqa: BLE001 - a crash tells the client nothing at all
+            return _fail(error, "itulib sync --all")
+        budget = max(max_tokens, 1) * index.CHARS_PER_TOKEN
+        out: dict[str, object] = {
+            "a": index.citation(first, clause_number),
+            "b": index.citation(second, clause_number),
+            "in_a": result.in_a,
+            "in_b": result.in_b,
+            "same": result.same if result.in_a and result.in_b else None,
+        }
+        for key, rows in (("removed_from_a", result.removed), ("added_in_b", result.added)):
+            kept: list[dict[str, object]] = []
+            used = 0
+            for para, sentence in rows:
+                if kept and used + len(sentence) > budget:
+                    out["truncated"] = True
+                    break
+                used += len(sentence)
+                kept.append({"para": para, "text": sentence})
+            out[key] = kept
+        return _guard(out)
 
     @app.tool(
         description="Clause outline of an edition: numbers and titles, no bodies. Paged: pass `next.start` back "

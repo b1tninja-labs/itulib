@@ -39,6 +39,7 @@ status 2 and tells you to install `itulib[mcp]`.
 | `itu_outline` | paged clause outline with `prefix` and `depth` |
 | `itu_grep` | regex over clause bodies with excerpts, token-budgeted |
 | `itu_errata` | errata and amendments registered for a recommendation, with the erratum text once fetched |
+| `itu_compare` | what changed in a clause between two editions (X.690 2008, 2015, 2021), by sentence |
 | `itu_info` | registered editions, digests and what is fetched (needs no corpus) |
 
 It also serves `itu://{rec}/{number}` as a resource template and two prompts, `explain_clause` and
@@ -57,16 +58,21 @@ clause number and edition, which `cite` always gives.
 ## What is covered
 
 All twelve are the 02/2021 edition, in force at the time of writing: X.680, X.681, X.682, X.683, X.690, X.691,
-X.692, X.693, X.694, X.695, X.696, X.697, plus X.690 Erratum 1 (09/2021). `itulib browse` lists the full ITU-T
+X.692, X.693, X.694, X.695, X.696, X.697, plus X.690 Erratum 1 (09/2021). The superseded X.690 editions of
+11/2008 and 08/2015 can be fetched with `itulib sync --all` for edition-sensitive questions (`itulib compare
+11.8`). They are the base texts: later corrigenda are separate documents and are not applied. `itulib browse` lists the full ITU-T
 series index (A-Z); only the ASN.1 recommendations are registered so far.
 
 ## Known limits
 
-- The PDFs are segmented into clauses by heuristics, not from ITU's own structure. Pointer text ("see 8.1.2"),
-  the document-history table and contents lines are filtered, but a few clause numbers still map to more than one
-  extracted fragment (history tables, numbered sub-items); `itu_read` returns the first and says so in a
-  `warning`. **Check the PDF before relying on a clause for a normative claim.**
+- Clauses are segmented from each PDF's own bookmarks (every numbered heading, with its exact title; 99.8% of
+  listed headings are located in the text across the twelve recommendations), and numbered paragraphs below
+  them (8.1.2.4.2) are accepted only where they follow in sequence. Paragraph numbers are not bookmarked, so
+  that part is inferred: **check the PDF before relying on a clause for a normative claim.** Where a number still
+  maps to more than one fragment, `itu_read` returns the first and says so in a `warning`.
 - Heading-only clauses ("8.1.2 Identifier octets") have no text of their own; reading one lists its subclauses.
+- `compare` ignores case, whitespace, punctuation and symbols (the extractor drops some symbols), so a change
+  consisting only of a sign or an operator is not reported.
 - Figures and tables do not survive extraction. Erratum 1 to X.690, for instance, replaces a figure.
 - Search is keyword (SQLite FTS5, porter stemming) with an any-term fallback. There is no semantic search.
 - Only the in-force editions are indexed; superseded editions are registered but not extracted.
@@ -76,6 +82,7 @@ series index (A-Z); only the ASN.1 recommendations are registered so far.
 ```
 python -m pip install -e ".[dev]"
 python -m pytest -q          # passes with no corpus present, by design
+python scripts/eval_retrieval.py   # retrieval quality on the fetched corpus (hit@k, MRR); not a test
 python -m ruff check . && python -m ruff format --check . && python -m mypy itulib tests
 ```
 

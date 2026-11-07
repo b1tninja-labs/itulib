@@ -50,7 +50,12 @@ def cmd_fetch(args: argparse.Namespace) -> int:
 def cmd_sync(args: argparse.Namespace) -> int:
     """Fetch and index each in-force edition. One failure is reported and does not stop the rest, and the exit
     status is non-zero if any failed, because a sync that quietly skips reports the same green as one that ran."""
-    targets = [sources.resolve(name) for name in args.targets] if args.targets else list(sources.IN_FORCE)
+    everything = (*sources.IN_FORCE, *sources.SUPERSEDED)
+    targets = (
+        [sources.resolve(name) for name in args.targets]
+        if args.targets
+        else list(everything if args.all else sources.IN_FORCE)
+    )
     failed: list[str] = []
     for edition in targets:
         try:
@@ -108,15 +113,18 @@ def cmd_read(args: argparse.Namespace) -> int:
         print(f"{index.citation(edition, number, para)}\n\n{one}")
         return 0
     page = index.page(edition, number, start=args.start, max_tokens=args.max_tokens)
-    if page is None:
+    if page is None or page.total == 0:
         kids = index.children(edition, number)
         if kids:
             print(f"{index.citation(edition, number)}: heading only; subclauses:")
             for child, title in kids:
                 print(f"  {child:10} {title}")
             return 0
-        print(f"{edition.key}: no clause §{number}", file=sys.stderr)
-        return 1
+        if page is None:
+            print(f"{edition.key}: no clause §{number}", file=sys.stderr)
+            return 1
+        print(f"{index.citation(edition, number)}  {page.title}: heading with no text and no indexed subclauses")
+        return 0
     print(f"{index.citation(edition, page.number)}  {page.title}\n")
     print(page.text)
     if page.next is not None:
@@ -154,6 +162,25 @@ def _print_links(edition: sources.Edition, number: str) -> int:
         ("cited by", found.cited_by),
     ):
         print(f"  {label:16} {', '.join(values) if values else '-'}")
+    return 0
+
+
+def cmd_compare(args: argparse.Namespace) -> int:
+    first, second = sources.resolve(args.edition_a), sources.resolve(args.edition_b)
+    _rec, number, _para = text.parse_ref(args.number)
+    result = index.compare(first, second, number)
+    print(f"{index.citation(first, number)}  ->  {index.citation(second, number)}")
+    if not (result.in_a and result.in_b):
+        side = first.key if not result.in_a else second.key
+        print(f"§{number} does not exist in {side}; the rule may have moved rather than gone.")
+        return 1
+    if result.same:
+        print("identical (ignoring whitespace and case)")
+        return 0
+    for para, sentence in result.removed:
+        print(f"- [¶{para}] {sentence}")
+    for para, sentence in result.added:
+        print(f"+ [¶{para}] {sentence}")
     return 0
 
 
@@ -231,7 +258,8 @@ def build_parser() -> argparse.ArgumentParser:
     fetch.add_argument("--refresh", action="store_true", help="download again even if present")
 
     sync = add("sync", cmd_sync, "fetch and index every in-force edition (or those named)")
-    sync.add_argument("targets", nargs="*", help="recommendations to sync (default: all registered)")
+    sync.add_argument("targets", nargs="*", help="editions to sync (default: every in-force edition)")
+    sync.add_argument("--all", action="store_true", help="include superseded editions that have a digest")
 
     idx = add("index", cmd_index, "build the clause index for a fetched edition")
     idx.add_argument("edition", nargs="?", default=DEFAULT)
@@ -249,6 +277,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     cite = add("cite", cmd_cite, "the citation string for a clause or sentence")
     cite.add_argument("ref", nargs="+")
+
+    compare = add("compare", cmd_compare, "what changed in a clause between two editions")
+    compare.add_argument("number")
+    compare.add_argument("edition_a", nargs="?", default="X.690#2008-11")
+    compare.add_argument("edition_b", nargs="?", default="X.690#2021-02")
 
     links = add("links", cmd_links, "what a clause points at, and what points at it")
     links.add_argument("ref", nargs="+")
