@@ -72,3 +72,19 @@ def clauses(source: list[str] | str) -> tuple[Clause, ...]:
 
 def find(clauses_in: tuple[Clause, ...], number: str) -> Clause | None:
     return next((clause for clause in clauses_in if clause.number == number), None)
+
+
+def fts_query(raw: str) -> str:
+    """Turn a user query into something FTS5 will accept.
+
+    A raw query is not a valid MATCH expression: `set-of value order` parses as `set` NEAR `-of` (an
+    unsupported-unary-not) and raised OperationalError out of a search tool, which is exactly the wrong shape
+    of failure - the caller sees a crash where it should see either an answer or a stated error. Each token is
+    quoted, and internal double quotes are doubled, which is FTS5's own escape. The cost is that advanced
+    syntax (`AND`, `NEAR`, prefix `*`) stops working from the query box; that is the honest trade, and it is
+    said here rather than left for a user to discover.
+    """
+    tokens = [token for token in raw.split() if token]
+    if not tokens:
+        raise ValueError("empty query: there is nothing to search for")
+    return " ".join(f'"{token.replace(chr(34), chr(34) * 2)}"' for token in tokens)

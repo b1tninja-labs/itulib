@@ -7,6 +7,8 @@ edition actually produces, including the dot-leader contents lines and the `ITU 
 
 from __future__ import annotations
 
+import pytest
+
 from itulib import text
 
 SYNTHETIC = """
@@ -49,6 +51,23 @@ def test_a_clause_cites_with_edition_and_number() -> None:
 def test_tidy_repairs_the_observed_spacing_artefact_and_says_nothing_else() -> None:
     assert "Rec. ITU-T databases" in text.tidy("Rec. ITU -T databases")
     assert text.tidy("a   b\n  c") == "a b c"
+
+
+def test_hyphenated_queries_survive_the_search_sanitiser() -> None:
+    """`set-of` is a term, not `set` NOT `of`. Unquoted, FTS5 raises and the tool crashes."""
+    prepared = text.fts_query("set-of value order")
+    assert prepared == '"set-of" "value" "order"'
+
+
+def test_quotes_in_a_query_are_escaped_not_interpreted() -> None:
+    assert text.fts_query('say "hello"') == '"say" """hello"""'
+
+
+def test_an_empty_query_is_refused_rather_than_matching_everything() -> None:
+    """An empty MATCH is not "no results" in FTS5, and a search that hands back the whole corpus on a blank
+    input looks like a working search to whoever wrote the caller."""
+    with pytest.raises(ValueError):
+        text.fts_query("   ")
 
 
 def test_bodyless_headings_are_not_indexed() -> None:

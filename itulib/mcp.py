@@ -15,6 +15,7 @@ Importing lazily also keeps the library usable without the MCP extra installed.
 from __future__ import annotations
 
 import json
+import sys
 
 from . import corpus, index, sources
 
@@ -68,8 +69,13 @@ def build() -> object:
     def itu_search(query: str, edition: str = "X.690", limit: int = 8) -> str:
         try:
             hits = index.search(sources.resolve(edition), query, limit)
-        except (corpus.CorpusMissing, KeyError, RuntimeError) as error:
-            return _guard({"error": str(error), "hint": "python -m itulib.cli fetch && python -m itulib.cli index"})
+        except Exception as error:  # noqa: BLE001 - a crash tells the client nothing at all
+            return _guard(
+                {
+                    "error": f"{type(error).__name__}: {error}",
+                    "hint": "python -m itulib.cli fetch && python -m itulib.cli index",
+                }
+            )
         return _guard(
             {
                 "edition": edition,
@@ -83,8 +89,8 @@ def build() -> object:
         try:
             item = sources.resolve(edition)
             clause = index.read(item, number.lstrip("§"))
-        except (corpus.CorpusMissing, KeyError, RuntimeError) as error:
-            return _guard({"error": str(error)})
+        except Exception as error:  # noqa: BLE001 - a crash tells the client nothing at all
+            return _guard({"error": f"{type(error).__name__}: {error}"})
         if clause is None:
             return _guard({"error": f"{edition}: no clause §{number}", "search_instead": True})
         return _guard({"cite": clause.cite(item.key), "number": clause.number, "text": clause.body})
@@ -93,8 +99,8 @@ def build() -> object:
     def itu_outline(edition: str = "X.690") -> str:
         try:
             rows = index.outline(sources.resolve(edition))
-        except (corpus.CorpusMissing, KeyError, RuntimeError) as error:
-            return _guard({"error": str(error)})
+        except Exception as error:  # noqa: BLE001 - a crash tells the client nothing at all
+            return _guard({"error": f"{type(error).__name__}: {error}"})
         return _guard([{"number": number, "title": title} for number, title in rows])
 
     @app.tool(description="Regex over clause bodies. Each hit carries its clause number.")
@@ -109,8 +115,8 @@ def build() -> object:
                 clause = index.read(item, number)
                 if clause and re.search(pattern, clause.body, re.I):
                     found.append({"number": number, "excerpt": clause.body[:400]})
-        except (corpus.CorpusMissing, KeyError, RuntimeError) as error:
-            return _guard({"error": str(error)})
+        except Exception as error:  # noqa: BLE001 - a crash tells the client nothing at all
+            return _guard({"error": f"{type(error).__name__}: {error}"})
         return _guard({"pattern": pattern, "hits": found[:20]})
 
     @app.tool(description="Errata, amendments and corrigenda registered against an edition.")
@@ -134,5 +140,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    print("itulib: speak MCP on stdio; run it from a client, not a terminal")
+    # stderr, never stdout. stdout *is* the protocol: a friendly notice printed there arrives before the
+    # handshake and the client fails with "Failed to parse JSONRPC message from server", naming neither the
+    # line nor the reason. The stdio test caught this; importing the module never would.
+    print("itulib: speaking MCP on stdio; run it from a client, not a terminal", file=sys.stderr)
     main()

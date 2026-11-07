@@ -86,10 +86,15 @@ def _open(edition: Edition) -> sqlite3.Connection:
 def search(edition: Edition, query: str, limit: int = 8) -> tuple[Hit, ...]:
     connection = _open(edition)
     try:
+        prepared = text.fts_query(query)
+    except ValueError:
+        connection.close()
+        raise
+    try:
         cursor = connection.execute(
             "SELECT number, title, snippet(clause, 2, '', '', ' … ', 24), bm25(clause) FROM clause "
             "WHERE clause MATCH ? ORDER BY bm25(clause) LIMIT ?",
-            (query, limit),
+            (prepared, limit),
         )
         return tuple(Hit(number=row[0], title=row[1], excerpt=row[2], score=row[3]) for row in cursor)
     finally:
