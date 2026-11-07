@@ -39,6 +39,7 @@ Legend: `[ok]` implemented and pinned by a named test -- `[part]` partial, with 
 | `ia.packaging` | wheel + sdist | `[part]` | built, `twine check --strict` passed, installed into clean venvs (with and without the `mcp` extra), sdist test suite passes from a clean extraction; `test_mcp_without_the_extra_exits_2_with_the_install_hint`. Not yet: a real upload, `[project.urls]` (no public remote), CI/release workflows have never run |
 | `ia.claude_registration` | `claude mcp add` | `[part]` | registered at user scope, `claude mcp list` reports Connected, all nine tools driven over stdio against the real corpus with zero errors. The running session's own tool list was not reloaded, so the model-facing path is unexercised |
 | `ia.catalog_crawler` | series listing -> recommendation -> component pages | `[part]` | `itulib/catalog.py`; `tests/test_catalog.py` (parsers on invented pages, pacing, cache, robots-allowed paths, resumable sync, `--reparse`, CLI). Verified against the live site for series X (756 listings) and five recommendations in detail, where crawled PDF sizes and ids equal the pinned ones for X.680/X.690/X.691. **Not done:** a full crawl of any series, other series' pages, and any use of the result to register editions automatically. Two parser bugs were found only by comparing with real pages (the access class of TIES-only files; `!Err1!PDF-E` single-bang ids), so a changed ITU layout will be caught by `sync` refusing an empty parse, not by a test |
+| `ia.formal_descriptions` | ITU-T formal-descriptions catalogue, 977 artifacts | `[ ]` | **Requested by `miblang`, whose M5 cannot close without it** (`miblang/ROADMAP.md`, and `POSITION` arrow `miblang -> itulib`). Measured 2026-11-05: artifacts are served unauthenticated at HTTP 200 from stable per-module paths `/ITU-T/formal-language/<series>/<rec>/<year>/<Module>.html`, with `index2.html` and `changes.html` beside them, and every catalogue row carries Rec., approval date, language, module name and OID. Three facts a mirror has to respect: the language facet is an ASP.NET `__VIEWSTATE` postback, so `?language=MIB` returns the unfiltered 977 rows and enumeration must walk `rec.aspx?id=N&showfl=1`; what is published is HTML rendered by Asnp rather than the normative source form, so an index must record which form it stored; and the page announces its own deactivation in favour of MyWorkspace. No test yet, and `sources.py` registers 16 prose editions and no artifacts |
 
 ## 2. Retiring asn1core's markers
 
@@ -93,6 +94,12 @@ projected", not "nothing open".
 - **Milestones.** This matrix has no ladder. A proposed one, taken from PLAN.md §5's exit test, is in Appendix A
   of `sdk-forge/docs/improvement-plan.md`; adopting it is the same open decision, so no Milestone column is
   added here.
+- **Artifacts beside prose.** The catalogue of formal descriptions (ASN.1, MIB, GDMO, ABNF, JSON, XML,
+  TTCN-3 and seven others) is a second kind of source: hashable text, yes, but with a module name and an OID as
+  its identity rather than a clause tree, and nothing in `sources.py` today distinguishes the two. Does an
+  artifact edition live in the same registry as a PDF edition, keyed by language, or in its own corpus class with
+  its own staleness rule? `miblang` needs the OID column back on every answer either way, so the choice is
+  visible from outside this project.
 - **`len-indefinite`.** asn1core retired a ninth marker on X.690 §8.1.3.2 a) (primitive encodings take the
   definite form) that has no row in section 2. The clause was re-read with `itulib read X.690 8.1.3.2` on
   2026-11-06 and says what asn1core cites. Whether it gets a row here is open.
