@@ -82,7 +82,9 @@ the rules below are paraphrased, and the citation is the authority rather than t
   stays the exit test.
 - **Not a conformance oracle.** An unresolved marker stays unresolved. The codec must not code against an
   invented interpretation, which is why `test_defect_corpus.py` refuses primitive indefinite length.
-- X.680-X.697 are all registered now. Scope grows beyond them (X.509, jointly ISO/IEC 9594-8) only as questions arrive.
+- X.680-X.697 are all registered now, and so is the X.500 family (X.500, X.501, X.508-X.511, X.518-X.521, X.525,
+  X.530) as of 2026-11-07; see `ia.catalog_x500`. Scope grows beyond them (jointly ISO/IEC 9594-8 for X.509)
+  only as questions arrive.
 
 ## 5. Exit test
 

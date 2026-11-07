@@ -1,7 +1,7 @@
 # itulib
 
 ITU-T recommendations as a **local, citation-precise library and MCP server**. It starts with the ASN.1 family
-(X.680-X.697): the normative source for ASN.1 and for the BER, CER, DER and PER encoding rules, none of which is
+(X.680-X.697) and the X.500 Directory family including X.509: the normative source for ASN.1 and for the BER, CER, DER and PER encoding rules, none of which is
 in the RFC series, so an RFC-only tool such as `rfclib` cannot answer "what does X.690 actually say?".
 
 **Not on PyPI yet** (`pip index versions itulib` found no distribution on 2026-11-06), so install from a clone:
@@ -81,16 +81,25 @@ PDF for nearly all, and Word is mostly TIES-only; `catalog.best_source` encodes 
 
 ## What is covered
 
-All twelve are the 02/2021 edition, in force at the time of writing: X.680, X.681, X.682, X.683, X.690, X.691,
-X.692, X.693, X.694, X.695, X.696, X.697, plus X.690 Erratum 1 (09/2021). The superseded X.690 editions of
-11/2008 and 08/2015 can be fetched with `itulib sync --all` for edition-sensitive questions (`itulib compare
-11.8`). They are the base texts: later corrigenda are separate documents and are not applied. `itulib browse` lists the full ITU-T
-series index (A-Z); only the ASN.1 recommendations are registered so far.
+**ASN.1 family.** All twelve are the 02/2021 edition, in force at the time of writing: X.680, X.681, X.682,
+X.683, X.690, X.691, X.692, X.693, X.694, X.695, X.696, X.697, plus X.690 Erratum 1 (09/2021). The superseded
+X.690 editions of 11/2008 and 08/2015 can be fetched with `itulib sync --all` for edition-sensitive questions
+(`itulib compare 11.8`). They are the base texts: later corrigenda are separate documents and are not applied.
+
+**X.500 Directory family.** Twelve more, each the edition ITU's own page lists as in force: X.500, X.501, X.509,
+X.511, X.518, X.519, X.520, X.521 and X.525 (all 10/2019), X.508 (10/2024), X.510 (10/2023) and X.530 (11/2008).
+X.509 is the public-key and attribute certificate framework. The in-force amendments and corrigenda that are
+freely downloadable are registered as separate documents (for example `X.509#2019-10!cor2`, `itulib read
+X.509#2019-10!amd1`); they are pinned and readable as flat text, but not applied to the base edition and not
+indexed by clause, so a clause of X.509 (2019) may have been changed by one of them. Not registered:
+X.506 (07/2026), prepublished and restricted to TIES users; X.510 Amendment 1 (07/2026), the same;
+X.509 Corrigendum 3 (07/2026), prepublished. `itulib browse` lists the full ITU-T series index (A-Z); the
+registered recommendations are the ASN.1 family and the X.500 family above.
 
 ## Known limits
 
 - Clauses are segmented from each PDF's own bookmarks (every numbered heading, with its exact title; 99.8% of
-  listed headings are located in the text across the twelve recommendations), and numbered paragraphs below
+  listed headings are located in the text across the twelve ASN.1 recommendations; 97.7% to 100% across the X.500 family, see `scripts/measure_segmentation.py`), and numbered paragraphs below
   them (8.1.2.4.2) are accepted only where they follow in sequence. Paragraph numbers are not bookmarked, so
   that part is inferred: **check the PDF before relying on a clause for a normative claim.** Where a number still
   maps to more than one fragment, `itu_read` returns the first and says so in a `warning`.

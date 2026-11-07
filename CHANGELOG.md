@@ -8,6 +8,11 @@ First release intended for PyPI.
   (09/2021), registered with SHA-256 digests measured from the downloaded files. `itulib fetch` verifies a
   digest and refuses a mismatch; `itulib sync` fetches and indexes everything and exits non-zero if any item
   failed. The ITU-T series index (A-Z) is browsable.
+- **X.500 Directory family.** X.500, X.501, X.508, X.509, X.510, X.511, X.518, X.519, X.520, X.521, X.525 and
+  X.530 at the editions ITU lists as in force, plus twelve in-force amendments and corrigenda (X.509 Corrigenda 1
+  and 2 and Amendment 1, among them), all pinned from downloaded bytes. X.506 and the prepublished 07/2026
+  X.509 Corrigendum 3 and X.510 Amendment 1 are recorded as not registered, with the reason
+  (`sources.NOT_REGISTERED`). `scripts/measure_segmentation.py` reports bookmark recall per edition.
 - **Nothing from ITU is shipped.** The text is fetched into `$ITULIB_HOME` (default `~/.itulib`). A test fails if
   a PDF or a verbatim clause sentence appears anywhere in the tree.
 - **CLI.** `info`, `fetch`, `sync`, `index`, `search`, `read`, `cite`, `links`, `grep`, `browse`, `errata`,
