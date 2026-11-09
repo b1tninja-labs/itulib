@@ -4,6 +4,21 @@
 because X.680 and X.690 are normative for BER and DER and are **not in the RFC series**, so `rfclib` cannot
 reach them. The corpus is fetched by the user and never committed.
 
+## Finding work
+
+If the person gave you a task, do that task.
+
+If you arrived with nothing to do, run this from this directory:
+
+    python ../sdk-forge/loop.py pickup --who <your name> --project itulib
+
+Its output is your assignment: one row, already claimed for you, with what to build, the commands that prove
+it and the ways to end it. The board decides the order of work, so the row it gives you is the row to work,
+even if it is in another project. `NO WORK` is a real answer: ask the person what to work on.
+
+Without the workspace beside this repository, read `.forge/packet.md` if it exists. If it does not, ask what
+to work on.
+
 ## Commands
 
 ```
