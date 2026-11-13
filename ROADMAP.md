@@ -1,3 +1,5 @@
+> **Archived 2026-11-13.** This roadmap is frozen; the `itu` collection's rows continue in primarysource's ROADMAP.md (`cl.adopt_itulib` and the rows after it).
+
 # itulib roadmap
 
 The obligation list for reaching the encoding-rule text: every question the portfolio has that `rfclib`

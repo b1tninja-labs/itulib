@@ -1,3 +1,22 @@
+# Archived: itulib now lives in primarysource
+
+This repository is frozen. Its code, tests and data moved into
+[primarysource](../primarysource) as the `itu` collection (`primarysource.itu`), copied from commit
+`36f5075` on 2026-11-13. Work on it there, not here. The `release-readiness` branch (79e8673, packaging for a standalone itulib release) is not carried over: primarysource has its own packaging.
+
+| Here | In primarysource |
+|---|---|
+| package `itulib` | `primarysource.itu` |
+| install | `pip install "primarysource[itu,mcp]"` |
+| commands | `itulib <command>` is `primarysource itu <command>`; `itulib mcp` is `primarysource mcp --collection itu` |
+| data | `ITULIB_HOME` is still read, and an existing `~/.itulib` is still found; otherwise the library lives in `$PRIMARYSOURCE_HOME/itu` or the per-user `primarysource/itu` |
+| MCP tools | the same `itu_*` tools |
+
+The history stays here; primarysource's move commits name the commit they copied. primarysource is Apache-2.0,
+and this code is relicensed there as the same author's work (its `NOTICE`).
+
+---
+
 # itulib
 
 ITU-T recommendations as a **local, citation-precise library and MCP server**. It starts with the ASN.1 family

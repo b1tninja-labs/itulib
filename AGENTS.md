@@ -1,3 +1,5 @@
+> **This repository is archived (2026-11-13).** itulib moved into primarysource as `primarysource.itu`. Do not start work here: work in `D:\code\primarysource`, under its AGENTS.md.
+
 # Instructions for coding agents
 
 `itulib` answers one question: what does a clause of an ITU-T recommendation say, and where is it. It exists
