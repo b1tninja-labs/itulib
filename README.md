@@ -1,7 +1,7 @@
 # Archived: itulib now lives in primarysource
 
 This repository is frozen. Its code, tests and data moved into
-[primarysource](../primarysource) as the `itu` collection (`primarysource.itu`), copied from commit
+[primarysource](https://github.com/b1tninja-labs/primarysource) as the `itu` collection (`primarysource.itu`), copied from commit
 `36f5075` on 2026-11-13. Work on it there, not here. The `release-readiness` branch (79e8673, packaging for a standalone itulib release) is not carried over: primarysource has its own packaging.
 
 | Here | In primarysource |
