@@ -87,7 +87,7 @@ gone. This directory (`itulibrary`) now has a public remote, <https://github.com
 2026-11-06, and the portfolio decision is that every project with a matrix is synced and gated, this one
 included. Read on 2026-11-06, #4 holds one project-level card for itulib, and it is stale: it still says
 "local only" and "8 of 26 obligations done". No row of this matrix has an issue (`b1tninja/itulib` has none).
-Projecting the rows is the board re-projection step in `sdk-forge/docs/improvement-plan.md` (WP18), which runs
+Projecting the rows is the board re-projection step in `projecthub/docs/improvement-plan.md` (WP18), which runs
 `sync_roadmap.py` for this repository and then `--check`. Until it has run, an issue count of zero means "not
 projected", not "nothing open".
 
@@ -95,9 +95,9 @@ projected", not "nothing open".
 
 - **Section 2 statuses.** asn1core `0fc1e5f` cites the edition and subclause for every marker. Do the section 2
   rows move to `[part]` until itulib itself quotes each clause, or further? This is an owner decision (D22 in
-  `sdk-forge/docs/improvement-plan.md`) and is open, so the rows stay `[ ]`.
+  `projecthub/docs/improvement-plan.md`) and is open, so the rows stay `[ ]`.
 - **Milestones.** This matrix has no ladder. A proposed one, taken from PLAN.md §5's exit test, is in Appendix A
-  of `sdk-forge/docs/improvement-plan.md`; adopting it is the same open decision, so no Milestone column is
+  of `projecthub/docs/improvement-plan.md`; adopting it is the same open decision, so no Milestone column is
   added here.
 - **Artifacts beside prose.** The catalogue of formal descriptions (ASN.1, MIB, GDMO, ABNF, JSON, XML,
   TTCN-3 and seven others) is a second kind of source: hashable text, yes, but with a module name and an OID as
