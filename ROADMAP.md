@@ -108,3 +108,28 @@ projected", not "nothing open".
 - **`len-indefinite`.** asn1core retired a ninth marker on X.690 §8.1.3.2 a) (primitive encodings take the
   definite form) that has no row in section 2. The clause was re-read with `itulib read X.690 8.1.3.2` on
   2026-11-06 and says what asn1core cites. Whether it gets a row here is open.
+
+## 6. Common base (`primarysource`)
+
+On 2026-11-12 all six citable-document libraries in the workspace were measured side by side: `rfclib`,
+`itulib`, `zimlore`, `cvelib`, `nistlib` and `usblib`. The comparison, the recommended shared core
+(`primarysource`, which is not committed yet) and the migration order are in `PORTFOLIO.md` §9 item 13. This
+table lists what itulib adopts from the core or fixes on the way. None of it is started. In that order itulib
+moves third, after nistlib/usblib and cvelib.
+
+| Obligation | Spec | Status | Where |
+|---|---|---|---|
+| `ia.base_pager` | read, outline, browse and grep page through the shared pager. `next` is a ref string that `itu_read` accepts back | `[ ]` | `itulib/index.py` `page` and `slice_rows` today. Read pages by a 1-based ¶ `start` and lists by a 0-based one, so a caller has to know two cursors |
+| `ia.base_ref_grammar` | `parse_ref` becomes the shared grammar, with an ITU doc-id pattern and ¶ declared as a sentence | `[ ]` | `itulib/text.py` `parse_ref`. The ¶ unit stays a sentence. Only the parser moves |
+| `ia.base_error` | `_fail` becomes the shared error-with-hint type | `[ ]` | `itulib/mcp.py` `_fail`, which packs the type and the message into one `error` string |
+| `ia.atomic_fetch` | a fetched PDF is written to a temporary file and replaced, never written in place | `[ ]` | `itulib/corpus.py` writes with `path.write_bytes(body)`, so an interrupted download leaves a partial file under the final name |
+| `ia.index_readonly_open` | the server opens the index read-only (`mode=ro`), with WAL and a busy timeout for the writer | `[ ]` | `itulib/index.py` `_open` sets none of these. The pattern exists in cvelib `store.py` and in rfclib PR #1 |
+| `ia.index_atomic_rebuild` | `itulib index` builds into a temporary file and replaces the old index, so a serving process never reads a half-built one | `[ ]` | rebuild unlinks and recreates the index today |
+| `ia.open_cost` | the PDF digest check runs at build time and again when the file's size or mtime changes, not on every open | `[ ]` | `_open` re-hashes the PDF on every open. The refusal to serve a changed PDF stays |
+| `ia.mcp_http` | `itulib mcp --transport http` through the shared scaffold, bound to loopback by default | `[ ]` | stdio only. Source: rfclib PR #1 (streamable HTTP, `/healthz`, read-only mode) |
+
+**Stays in itulib.** The licence rule and the fetch-only corpus (`test_license.py`). The pinned edition
+registry, and the index refusing to serve when the PDF's hash changes. PDF clause segmentation, with ¶ as a
+sentence. The ranking: BM25 weights `2.0, 0.0, 15.0, 1.0` and the ×0.6 demotion of definitions and
+informative annexes. `compare` between editions. The itu.int catalogue crawler. Amendments as errata. itulib's
+search is already keyword-only (FTS5 BM25), and the core keeps it that way.
